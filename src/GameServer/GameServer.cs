@@ -5,7 +5,6 @@
 namespace MUnique.OpenMU.GameServer
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
     using log4net;
@@ -26,8 +25,6 @@ namespace MUnique.OpenMU.GameServer
 
         private readonly GameServerContext gameContext;
 
-        private readonly ConcurrentBag<ushort> freePlayerIds;
-
         private readonly ICollection<IGameServerListener> listeners = new List<IGameServerListener>();
 
         private bool initialized;
@@ -38,22 +35,21 @@ namespace MUnique.OpenMU.GameServer
         /// <param name="gameServerDefinition">The game server definition.</param>
         /// <param name="guildServer">The guild server.</param>
         /// <param name="loginServer">The login server.</param>
-        /// <param name="repositoryManager">The repository manager.</param>
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
         /// <param name="friendServer">The friend server.</param>
         public GameServer(
             GameServerDefinition gameServerDefinition,
             IGuildServer guildServer,
             ILoginServer loginServer,
-            IRepositoryManager repositoryManager,
+            IPersistenceContextProvider persistenceContextProvider,
             IFriendServer friendServer)
         {
-            this.ServerState = ServerState.Stopped;
             this.Id = gameServerDefinition.ServerID;
             this.Description = gameServerDefinition.Description;
 
             try
             {
-                this.gameContext = new GameServerContext(gameServerDefinition, guildServer, loginServer, friendServer, repositoryManager);
+                this.gameContext = new GameServerContext(gameServerDefinition, guildServer, loginServer, friendServer, persistenceContextProvider);
             }
             catch (Exception ex)
             {
@@ -61,11 +57,6 @@ namespace MUnique.OpenMU.GameServer
                 throw;
             }
 
-            this.freePlayerIds =
-                new ConcurrentBag<ushort>(
-                    Enumerable.Range(
-                        gameServerDefinition.ServerConfiguration.MaximumNPCs + 1,
-                        gameServerDefinition.ServerConfiguration.MaximumPlayers).Select(id => (ushort)id));
             this.ServerInfo = new GameServerInfoAdapter(this, gameServerDefinition.ServerConfiguration);
         }
 
@@ -104,7 +95,6 @@ namespace MUnique.OpenMU.GameServer
         public void AddListener(IGameServerListener listener)
         {
             this.listeners.Add(listener);
-            listener.PlayerIdRequested += this.OnPlayerIdRequested;
             listener.PlayerConnected += this.OnPlayerConnected;
         }
 
@@ -147,10 +137,10 @@ namespace MUnique.OpenMU.GameServer
         }
 
         /// <inheritdoc/>
-        public void GuildChatMessage(Guid guildId, string sender, string message)
+        public void GuildChatMessage(uint guildId, string sender, string message)
         {
             var guildplayers = from player in this.gameContext.PlayerList
-                where player.SelectedCharacter?.GuildMemberInfo?.GuildId == guildId
+                where player.GuildStatus?.GuildId == guildId
                 select player;
 
             foreach (var player in guildplayers)
@@ -160,10 +150,10 @@ namespace MUnique.OpenMU.GameServer
         }
 
         /// <inheritdoc/>
-        public void AllianceChatMessage(Guid guildId, string sender, string message)
+        public void AllianceChatMessage(uint guildId, string sender, string message)
         {
             var guildplayers = from player in this.gameContext.PlayerList
-                where player.SelectedCharacter?.GuildMemberInfo?.GuildId == guildId
+                where player.GuildStatus?.GuildId == guildId
                 select player;
 
             // TODO: determine alliance
@@ -180,6 +170,7 @@ namespace MUnique.OpenMU.GameServer
             if (player != null)
             {
                 var newLetterIndex = player.SelectedCharacter.Letters.Count;
+                player.PersistenceContext.Attach(letter);
                 player.SelectedCharacter.Letters.Add(letter);
                 player.PlayerView.MessengerView.AddToLetterList(letter, (ushort)newLetterIndex, true);
             }
@@ -195,6 +186,35 @@ namespace MUnique.OpenMU.GameServer
         public bool IsAccountOnline(string accountName)
         {
             return this.gameContext.PlayerList.Any(player => player.Account.LoginName == accountName);
+        }
+
+        /// <inheritdoc />
+        public bool DisconnectPlayer(string playerName)
+        {
+            var player = this.gameContext.GetPlayerByCharacterName(playerName);
+            if (player != null)
+            {
+                player.PlayerView.ShowMessage("You got disconnected by a game master.", MessageType.BlueNormal);
+                player.Disconnect();
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <inheritdoc />
+        public bool BanPlayer(string playerName)
+        {
+            var player = this.gameContext.GetPlayerByCharacterName(playerName);
+            if (player != null)
+            {
+                player.Account.State = AccountState.TemporarilyBanned;
+                player.PlayerView.ShowMessage("Your account has been temporarily banned by a game master.", MessageType.BlueNormal);
+                player.Disconnect();
+                return true;
+            }
+
+            return false;
         }
 
         /// <inheritdoc/>
@@ -229,18 +249,12 @@ namespace MUnique.OpenMU.GameServer
         }
 
         /// <inheritdoc/>
-        public void GuildDeleted(Guid guildId)
+        public void GuildDeleted(uint guildId)
         {
             this.gameContext.PlayerList
-                .Where(
-                    player =>
-                        player.SelectedCharacter?.GuildMemberInfo != null &&
-                        player.SelectedCharacter.GuildMemberInfo.GuildId == guildId)
+                .Where(player => player.GuildStatus?.GuildId == guildId)
                 .ForEach(RemovePlayerFromGuild);
-            this.gameContext.PlayerList
-                .SelectMany(player => player.Account?.Characters).Where(c => c.GuildMemberInfo?.GuildId == guildId)
-                .ForEach(character => character.GuildMemberInfo = null);
-            ////todo: alliance things?
+            //// todo: alliance things?
         }
 
         /// <inheritdoc/>
@@ -249,7 +263,6 @@ namespace MUnique.OpenMU.GameServer
             Player player = this.gameContext.GetPlayerByCharacterName(playerName);
             if (player == null)
             {
-                this.RemovePlayerFromGuild(playerName);
                 return;
             }
 
@@ -308,27 +321,8 @@ namespace MUnique.OpenMU.GameServer
 
         private static void RemovePlayerFromGuild(Player player)
         {
-            player.ShortGuildID = 0;
-            player.SelectedCharacter.GuildMemberInfo = null;
+            player.GuildStatus = null;
             player.ForEachObservingPlayer(observer => observer.PlayerView.GuildView.PlayerLeftGuild(player), true);
-        }
-
-        private void RemovePlayerFromGuild(string characterName)
-        {
-            var affectedPlayer =
-                this.gameContext.PlayerList.FirstOrDefault(
-                    p => p.Account?.Characters.Any(c => c.Name == characterName) ?? false);
-            var character = affectedPlayer?.Account.Characters.FirstOrDefault(c => c.Name == characterName);
-            if (character != null)
-            {
-                character.GuildMemberInfo = null;
-            }
-        }
-
-        private void OnPlayerIdRequested(object sender, RequestPlayerIdEventArgs e)
-        {
-            e.Cancel = !this.freePlayerIds.TryTake(out ushort newPlayerId);
-            e.PlayerId = newPlayerId;
         }
 
         private void OnPlayerConnected(object sender, PlayerConnectedEventArgs e)
@@ -360,42 +354,38 @@ namespace MUnique.OpenMU.GameServer
             var configuration = this.gameContext.ServerConfiguration;
             foreach (var map in configuration.Maps.OrderBy(m => m.Number))
             {
-                var gameMap = new GameMap(map, 60, 8, (ushort)(configuration.MaximumNPCs + configuration.MaximumPlayers + 1));
+                var gameMap = new GameMap(map, 60, 8);
                 this.Context.MapList.Add(map.Number.ToUnsigned(), gameMap);
             }
         }
 
         private void InitializeNpcs()
         {
-            ushort npcId = 0;
             var dropGenerator = new DefaultDropGenerator(this.Context.Configuration, Rand.GetRandomizer());
             foreach (var map in this.Context.MapList.Values.Where(m => m.Definition.MonsterSpawns.Any()))
             {
                 Logger.Debug($"Start creating monster instances for map {map}");
-                foreach (var spawn in map.Definition.MonsterSpawns)
+                foreach (var spawn in map.Definition.MonsterSpawns.Where(s => s.SpawnTrigger == SpawnTrigger.Automatic))
                 {
                     for (int i = 0; i < spawn.Quantity; i++)
                     {
-                        npcId++;
-                        if (npcId > this.Context.ServerConfiguration.MaximumNPCs)
-                        {
-                            throw new InvalidOperationException(
-                                "Maximum npc count exceeded. Either increase the limit or remove monster instances.");
-                        }
-
                         var monsterDef = spawn.MonsterDefinition;
+                        NonPlayerCharacter npc;
+
+                        // TODO: Check if the condition is correct... NPCs are not attackable, but some might need to be (castle gates etc.)
                         if (monsterDef.AttackDelay > TimeSpan.Zero)
                         {
                             Logger.Debug($"Creating monster {spawn}");
-                            var monster = new Monster(spawn, monsterDef, npcId, map, dropGenerator, new BasicMonsterIntelligence(map));
-                            monster.Respawn();
+                            npc = new Monster(spawn, monsterDef, map, dropGenerator, new BasicMonsterIntelligence(map));
                         }
                         else
                         {
                             Logger.Debug($"Creating npc {spawn}");
-                            var npc = new NonPlayerCharacter(spawn, monsterDef, npcId, map);
-                            npc.Respawn();
+                            npc = new NonPlayerCharacter(spawn, monsterDef, map);
                         }
+
+                        npc.Initialize();
+                        map.Add(npc);
                     }
                 }
 
@@ -408,7 +398,6 @@ namespace MUnique.OpenMU.GameServer
             this.SetOfflineAtFriendServer(remotePlayer);
             this.SaveSessionOfPlayer(remotePlayer);
             this.SetOfflineAtLoginServer(remotePlayer);
-            this.freePlayerIds.Add(remotePlayer.Id);
             remotePlayer.Dispose();
         }
 
@@ -509,7 +498,11 @@ namespace MUnique.OpenMU.GameServer
                     this.players = players;
                 }
 
-                public GameMapDefinition Map => this.map.Definition;
+                public short MapNumber => this.map.Definition.Number;
+
+                public string MapName => this.map.Definition.Name;
+
+                public byte[] TerrainData => this.map.Definition.TerrainData;
 
                 public System.Collections.Generic.IList<IPlayerInfo> Players
                 {

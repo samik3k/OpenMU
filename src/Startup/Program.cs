@@ -23,6 +23,8 @@ namespace MUnique.OpenMU.Startup
     using MUnique.OpenMU.LoginServer;
     using MUnique.OpenMU.Persistence;
     using MUnique.OpenMU.Persistence.EntityFramework;
+    using MUnique.OpenMU.Persistence.Initialization;
+    using MUnique.OpenMU.Persistence.InMemory;
 
     /// <summary>
     /// The startup class for an all-in-one game server.
@@ -34,7 +36,7 @@ namespace MUnique.OpenMU.Startup
         private readonly AdminPanel adminPanel;
         private readonly IDictionary<int, IGameServer> gameServers = new Dictionary<int, IGameServer>();
         private readonly IList<IManageableServer> servers = new List<IManageableServer>();
-        private readonly RepositoryManager repositoryManager;
+        private readonly IPersistenceContextProvider persistenceContextProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Program"/> class.
@@ -43,46 +45,34 @@ namespace MUnique.OpenMU.Startup
         /// <param name="args">The command line args.</param>
         public Program(string[] args)
         {
-            this.repositoryManager = new RepositoryManager();
-            this.repositoryManager.InitializeSqlLogging();
-            if (args.Contains("-reinit"))
+            if (args.Contains("-demo"))
             {
-                Console.WriteLine("The database is getting reininitialized...");
-                this.repositoryManager.ReInitializeDatabase();
+                this.persistenceContextProvider = new InMemoryPersistenceContextProvider();
+                var initialization = new DataInitialization(this.persistenceContextProvider);
+                initialization.CreateInitialData();
             }
-            else if (!this.repositoryManager.IsDatabaseUpToDate())
+            else
             {
-                Console.WriteLine("The database needs to be updated before the server can be started. Apply update? (y/n)");
-                var key = Console.ReadLine()?.ToLowerInvariant();
-                if (key == "y")
-                {
-                    this.repositoryManager.ApplyAllPendingUpdates();
-                    Console.WriteLine("The database has been successfully updated.");
-                }
-                else
-                {
-                    Console.WriteLine("Cancelled the update process, can't start the server.");
-                    return;
-                }
+                this.persistenceContextProvider = this.PrepareRepositoryManager(args.Contains("-reinit"));
             }
 
-            this.repositoryManager.RegisterRepositories();
             Log.Info("Start initializing sub-components");
+            var persistenceContext = this.persistenceContextProvider.CreateNewConfigurationContext();
             var loginServer = new LoginServer();
             var chatServer = new ChatServerListener(55980);
             this.servers.Add(chatServer);
-            var guildServer = new GuildServer(this.gameServers, this.repositoryManager);
-            var friendServer = new FriendServer(this.gameServers, chatServer, this.repositoryManager);
+            var guildServer = new GuildServer(this.gameServers, this.persistenceContextProvider);
+            var friendServer = new FriendServer(this.gameServers, chatServer, this.persistenceContextProvider);
             var connectServer = ConnectServerFactory.CreateConnectServer();
             this.servers.Add(connectServer);
             Log.Info("Start initializing game servers");
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            foreach (var gameServerDefinition in this.GetGameServers())
+            foreach (var gameServerDefinition in persistenceContext.Get<GameServerDefinition>())
             {
                 using (ThreadContext.Stacks["gameserver"].Push(gameServerDefinition.ServerID.ToString()))
                 {
-                    var gameServer = new GameServer(gameServerDefinition, guildServer, loginServer, this.repositoryManager, friendServer);
+                    var gameServer = new GameServer(gameServerDefinition, guildServer, loginServer, this.persistenceContextProvider, friendServer);
                     foreach (var mainPacketHandler in gameServer.Context.PacketHandlers)
                     {
                         gameServer.AddListener(new DefaultTcpGameServerListener(gameServerDefinition.NetworkPort, gameServer.ServerInfo, gameServer.Context, connectServer, mainPacketHandler));
@@ -101,7 +91,7 @@ namespace MUnique.OpenMU.Startup
             Log.Info($"All game servers initialized, elapsed time: {stopwatch.Elapsed}");
             Log.Info("Start initializing admin panel");
 
-            this.adminPanel = new AdminPanel(1234, this.servers, this.repositoryManager);
+            this.adminPanel = new AdminPanel(1234, this.servers, this.persistenceContextProvider);
             Log.Info("Admin panel initialized");
 
             if (args.Contains("-autostart"))
@@ -154,15 +144,38 @@ namespace MUnique.OpenMU.Startup
             }
 
             this.adminPanel.Dispose();
-            this.repositoryManager.Dispose();
+            (this.persistenceContextProvider as IDisposable)?.Dispose();
         }
 
-        private IEnumerable<GameServerDefinition> GetGameServers()
+        private IPersistenceContextProvider PrepareRepositoryManager(bool reinit)
         {
-            using (this.repositoryManager.UseTemporaryConfigurationContext())
+            PersistenceContextProvider.InitializeSqlLogging();
+            var manager = new PersistenceContextProvider();
+            if (reinit || !manager.DatabaseExists())
             {
-                return this.repositoryManager.GetRepository<GameServerDefinition>().GetAll();
+                Log.Info("The database is getting (re-)ininitialized...");
+                manager.ReCreateDatabase();
+                var initialization = new DataInitialization(manager);
+                initialization.CreateInitialData();
+                Log.Info("...initialization finished.");
             }
+            else if (!manager.IsDatabaseUpToDate())
+            {
+                Console.WriteLine("The database needs to be updated before the server can be started. Apply update? (y/n)");
+                var key = Console.ReadLine()?.ToLowerInvariant();
+                if (key == "y")
+                {
+                    manager.ApplyAllPendingUpdates();
+                    Console.WriteLine("The database has been successfully updated.");
+                }
+                else
+                {
+                    Console.WriteLine("Cancelled the update process, can't start the server.");
+                    return null;
+                }
+            }
+
+            return manager;
         }
     }
 }

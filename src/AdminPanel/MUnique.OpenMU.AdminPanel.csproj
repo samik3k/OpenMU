@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>MUnique.OpenMU.AdminPanel</RootNamespace>
     <AssemblyName>MUnique.OpenMU.AdminPanel</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <NoWin32Manifest>False</NoWin32Manifest>
     <TargetFrameworkProfile />
@@ -66,6 +66,9 @@
     </CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BCrypt.Net-Next, Version=2.1.1.0, Culture=neutral, PublicKeyToken=748c6c715e2d42e3, processorArchitecture=MSIL">
+      <HintPath>..\packages\BCrypt.Net-Next.2.1.1\lib\net452\BCrypt.Net-Next.dll</HintPath>
+    </Reference>
     <Reference Include="ClearScript, Version=5.4.9.0, Culture=neutral, PublicKeyToken=935d0c957da47c73, processorArchitecture=MSIL">
       <HintPath>..\packages\JavaScriptEngineSwitcher.V8.2.4.2\lib\net45\ClearScript.dll</HintPath>
     </Reference>
@@ -167,10 +170,15 @@
     <Compile Include="..\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="AccountModule.cs" />
     <Compile Include="AdminPanel.cs" />
     <Compile Include="ExtendedGameServerInfo.cs" />
     <Compile Include="FooBarHub.cs" />
+    <Compile Include="LiveMapModule.cs" />
+    <Compile Include="LogModule.cs" />
     <Compile Include="ObjectExtensions.cs" />
+    <Compile Include="PlayerModule.cs" />
+    <Compile Include="ServerModule.cs" />
     <Compile Include="WorldObserverHub.cs" />
     <Compile Include="WorldObserverToHubAdapter.cs" />
     <None Include="app.config" />
@@ -184,7 +192,6 @@
     </None>
     <None Include="content\bootstrap-theme.min.css.map" />
     <None Include="content\bootstrap.min.css.map" />
-    <None Include="content\js\actions\LogActions.js" />
     <None Include="content\js\components\LogTable.jsx" />
     <Compile Include="AttributeDictionaryConverter.cs" />
     <Compile Include="DataModule.cs" />
@@ -194,7 +201,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="content\js\actions\ServerListActions.js" />
+    <None Include="content\js\actions\AdminActions.js" />
     <None Include="content\js\components\LogEntry.jsx" />
     <None Include="content\js\components\ServerItem.jsx" />
     <None Include="content\js\components\TotalOnlineCounter.jsx" />
@@ -216,21 +223,21 @@
     <None Include="TransformBabel.proj">
       <SubType>Designer</SubType>
     </None>
-    <None Include="views\home\index.sshtml">
+    <None Include="views\Home\index.sshtml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
-    <None Include="views\home\livemap.sshtml">
+    <None Include="views\LiveMap\livemap.sshtml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="views\home\log.sshtml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="views\home\serverItem.html">
+    <None Include="views\Log\log.sshtml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
+    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AttributeSystem\MUnique.OpenMU.AttributeSystem.csproj">
       <Project>{3DD171E2-4F6E-486A-8420-F6935C4DA03C}</Project>
@@ -264,12 +271,27 @@
     <Content Include="content\bootstrap.min.css" />
     <Content Include="content\css\log.css" />
     <Content Include="content\css\modal.css" />
+    <Content Include="content\css\spin.css" />
     <Content Include="content\img\attackable_alphamap.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="content\js\actions\MapActions.js" />
+    <Content Include="content\js\components\AccountList.jsx" />
+    <Content Include="content\js\components\CreateAccountModal.jsx" />
+    <Content Include="content\js\components\HeaderMenu.jsx" />
+    <Content Include="content\js\components\AccountItem.jsx" />
+    <Content Include="content\js\components\Layout.jsx" />
+    <Content Include="content\js\components\LoadingIndicator.jsx" />
+    <Content Include="content\js\components\MapPlayerList.jsx" />
+    <Content Include="content\js\components\MapPlayerListItem.jsx" />
+    <Content Include="content\js\constants\AccountConstants.js" />
+    <Content Include="content\js\constants\CommonConstants.js" />
     <Content Include="content\js\liveview.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="content\js\stores\AccountStore.js" />
+    <Content Include="content\js\stores\CommonStateStore.js" />
+    <Content Include="content\js\stores\MapPlayerStore.js" />
     <Content Include="fonts\glyphicons-halflings-regular.svg" />
     <Content Include="Scripts\bootstrap.js" />
     <Content Include="Scripts\bootstrap.min.js" />
@@ -292,16 +314,11 @@
     <Content Include="Scripts\jquery-2.2.0.js" />
     <Content Include="Scripts\jquery-2.2.0.min.js" />
   </ItemGroup>
-  <ItemGroup>
-    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\Newtonsoft.Json.dll" />
-    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
-    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="TransformBabel" AfterTargets="Build" Condition=" '$(TRAVIS)' == '' ">
-    <Exec Command="&quot;$(MSBuildToolsPath)\MSBuild.exe&quot; $(ProjectDirectory)TransformBabel.proj /p:OutputPath=$(OutputPath) /nr:false" />
-  </Target>
-  <Target Name="CopyScripts" AfterTargets="TransformBabel" Condition=" '$(TRAVIS)' == '' ">
-    <Exec Command="&quot;$(MSBuildToolsPath)\MSBuild.exe&quot; $(ProjectDirectory)CopyScripts.proj /p:OutputPath=$(OutputPath) /nr:false" />
+  <Import Project="$(ProjectDirectory)TransformBabel.proj" />
+  <Import Project="$(ProjectDirectory)CopyScripts.proj" />
+  <Target Name="BuildAndCopyScripts" AfterTargets="Build">
+    <CallTarget Targets="TransformBabel" Condition="$(TRAVIS) == ''" />
+    <CallTarget Targets="CopyScripts" Condition="$(TRAVIS) == ''" />
   </Target>
 </Project>

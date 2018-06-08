@@ -74,16 +74,14 @@ namespace MUnique.OpenMU.GameLogic
         /// <summary>
         /// Initializes a new instance of the <see cref="Player" /> class.
         /// </summary>di
-        /// <param name="id">The id of the player.</param>
         /// <param name="gameContext">The game context.</param>
         /// <param name="playerView">The player view.</param>
-        public Player(ushort id, IGameContext gameContext, IPlayerView playerView)
+        public Player(IGameContext gameContext, IPlayerView playerView)
             : this()
         {
-            this.Id = id;
             this.gameContext = gameContext;
             this.PlayerView = playerView;
-            this.PersistenceContext = this.gameContext.RepositoryManager.CreateNewAccountContext(gameContext.Configuration);
+            this.PersistenceContext = this.gameContext.PersistenceContextProvider.CreateNewPlayerContext(gameContext.Configuration);
             this.walker = new Walker(this);
         }
 
@@ -158,13 +156,13 @@ namespace MUnique.OpenMU.GameLogic
         /// <summary>
         /// Gets the persistence context.
         /// </summary>
-        public IContext PersistenceContext { get; }
+        public IPlayerContext PersistenceContext { get; }
 
         /// <inheritdoc />
         public ITradeView TradeView => this.PlayerView.TradeView;
 
         /// <inheritdoc/>
-        public ushort Id { get; }
+        public ushort Id { get; set; }
 
         /// <inheritdoc/>
         public string Name => this.SelectedCharacter.Name;
@@ -238,7 +236,7 @@ namespace MUnique.OpenMU.GameLogic
         public ISkillList SkillList { get; private set; }
 
         /// <inheritdoc/>
-        public ushort ShortGuildID { get; set; }
+        public GuildMemberStatus GuildStatus { get; set; }
 
         /// <inheritdoc/>
         public Direction Rotation { get; set; }
@@ -345,7 +343,10 @@ namespace MUnique.OpenMU.GameLogic
         public ItemAwareAttributeSystem Attributes { get; private set; }
 
         /// <inheritdoc/>
-        public Bucket<ILocateable> CurrentBucket { get; set; }
+        public Bucket<ILocateable> NewBucket { get; set; }
+
+        /// <inheritdoc/>
+        public Bucket<ILocateable> OldBucket { get; set; }
 
         /// <summary>
         /// Gets the appearance data of the player with the specified serializer.
@@ -492,9 +493,9 @@ namespace MUnique.OpenMU.GameLogic
             this.Attributes[Stats.CurrentShield] = this.Attributes[Stats.MaximumShield];
             this.Attributes[Stats.CurrentAbility] = this.Attributes[Stats.MaximumAbility] / 2;
             this.CurrentMap = this.gameContext.MapList[this.SelectedCharacter.CurrentMap.Number.ToUnsigned()];
-            this.CurrentMap.Add(this);
             this.PlayerState.TryAdvanceTo(GameLogic.PlayerState.EnteredWorld);
             this.Alive = true;
+            this.CurrentMap.Add(this);
         }
 
         /// <summary>
@@ -572,7 +573,6 @@ namespace MUnique.OpenMU.GameLogic
                 this.walker.Start();
             }
 
-            this.PlayerView.WorldView.ObjectMoved(this, moveType);
             Logger.DebugFormat("Move: Observer Count: {0}", this.Observers.Count);
         }
 
@@ -638,18 +638,6 @@ namespace MUnique.OpenMU.GameLogic
             {
                 this.ObserverLock.ExitWriteLock();
             }
-        }
-
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            return this.Id == (obj as Player)?.Id;
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return this.Id;
         }
 
         /// <inheritdoc/>
@@ -758,8 +746,14 @@ namespace MUnique.OpenMU.GameLogic
             if (this.respawnAfterDeathToken.CanBeCanceled && !this.respawnAfterDeathToken.IsCancellationRequested)
             {
                 this.respawnAfterDeathToken.ThrowIfCancellationRequested();
-                this.WarpTo(this.CurrentMap.Definition.DeathSafezone);
+                this.WarpTo(this.GetSpawnGateOfCurrentMap());
             }
+        }
+
+        private ExitGate GetSpawnGateOfCurrentMap()
+        {
+            var spawnTargetMap = this.CurrentMap.Definition.SafezoneMap ?? this.CurrentMap.Definition;
+            return spawnTargetMap.ExitGates.Where(g => g.IsSpawnGate).SelectRandom();
         }
 
         private void OnDeath(IAttackable killer)
@@ -783,7 +777,7 @@ namespace MUnique.OpenMU.GameLogic
                   this.Attributes[Stats.CurrentMana] = this.Attributes[Stats.MaximumMana];
                   this.Attributes[Stats.CurrentShield] = this.Attributes[Stats.MaximumShield];
                   this.Attributes[Stats.CurrentAbility] = this.Attributes[Stats.MaximumAbility];
-                  this.WarpTo(this.SelectedCharacter.CurrentMap.DeathSafezone);
+                  this.WarpTo(this.GetSpawnGateOfCurrentMap());
               },
               this.respawnAfterDeathToken);
         }
@@ -804,18 +798,7 @@ namespace MUnique.OpenMU.GameLogic
             this.ClientReadyAfterMapChange();
 
             this.PlayerView.WorldView.UpdateRotation();
-
-            if (this.gameContext is IGameServerContext gameServerContext)
-            {
-                if (this.SelectedCharacter.GuildMemberInfo != null)
-                {
-                    this.ShortGuildID = gameServerContext.GuildServer.GuildMemberEnterGame(this.SelectedCharacter.GuildMemberInfo.GuildId, this.SelectedCharacter.Name, gameServerContext.Id);
-                    gameServerContext.GuildCache.RegisterShortId(this.selectedCharacter.GuildMemberInfo.GuildId, this.ShortGuildID);
-                }
-
-                this.PlayerView.MessengerView.InitializeMessenger(this.gameContext.Configuration.MaximumLetters);
-                gameServerContext.FriendServer.SetOnlineState(this.SelectedCharacter.Id, this.SelectedCharacter.Name, gameServerContext.Id);
-            }
+            this.PlayerView.MessengerView.InitializeMessenger(this.gameContext.Configuration.MaximumLetters);
         }
 
         private sealed class TemporaryItemStorage : ItemStorage
@@ -843,18 +826,7 @@ namespace MUnique.OpenMU.GameLogic
                 {
                     if (this.player.Inventory != null)
                     {
-                        return this.player.Inventory.EquippedItems
-                            .Select(item =>
-                                    {
-                                        return new ItemAppearance
-                                        {
-                                            Index = item.Definition.Number,
-                                            Group = item.Definition.Group,
-                                            ItemSlot = item.ItemSlot,
-                                            Level = item.Level,
-                                            VisibleOptions = item.ItemOptions.Select(option => option.ItemOption.OptionType).ToArray()
-                                        };
-                                    });
+                        return this.player.Inventory.EquippedItems.Select(item => item.GetAppearance());
                     }
 
                     return Enumerable.Empty<ItemAppearance>();

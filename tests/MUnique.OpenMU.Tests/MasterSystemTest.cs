@@ -39,7 +39,7 @@ namespace MUnique.OpenMU.Tests
         public void Setup()
         {
             this.context = this.CreateGameContext();
-            this.player = TestHelper.GetPlayer(0, this.context);
+            this.player = TestHelper.GetPlayer(this.context);
             this.skillRank0 = this.CreateSkill(1, 0, 1, null, this.player.SelectedCharacter.CharacterClass);
             this.skillRank1 = this.CreateSkill(2, 1, 1, null, this.player.SelectedCharacter.CharacterClass);
             this.skillRank2 = this.CreateSkill((short)this.skillIdRank2, 2, 1, null, this.player.SelectedCharacter.CharacterClass);
@@ -227,15 +227,20 @@ namespace MUnique.OpenMU.Tests
         private IGameContext CreateGameContext()
         {
             var stub = MockRepository.GenerateStub<IGameContext>();
-            stub.Stub(c => c.RepositoryManager).Return(MockRepository.GenerateStub<IRepositoryManager>());
+            stub.Stub(c => c.PersistenceContextProvider).Return(MockRepository.GenerateStub<IPersistenceContextProvider>());
             stub.Stub(c => c.MapList).Return(new Dictionary<ushort, GameMap>());
-            stub.RepositoryManager.Stub(m => m.CreateNew<SkillEntry>())
+
+            var accountContext = MockRepository.GenerateStub<IPlayerContext>();
+            accountContext.Stub(m => m.CreateNew<SkillEntry>())
                 .WhenCalled(a => a.ReturnValue = new SkillEntry())
                 .Repeat.Any()
                 .Return(null);
+
             var gameConfig = MockRepository.GenerateStub<GameConfiguration>();
             gameConfig.RecoveryInterval = int.MaxValue;
             stub.Stub(c => c.Configuration).Return(gameConfig);
+
+            stub.PersistenceContextProvider.Stub(m => m.CreateNewPlayerContext(gameConfig)).Return(accountContext);
             return stub;
         }
     }

@@ -6,14 +6,18 @@ namespace MUnique.OpenMU.Interfaces
 {
     using System;
     using System.Collections.Generic;
-    using MUnique.OpenMU.DataModel.Configuration;
-    using MUnique.OpenMU.DataModel.Entities;
+    using MUnique.OpenMU.Interfaces;
 
     /// <summary>
     /// The state of the server.
     /// </summary>
     public enum ServerState
     {
+        /// <summary>
+        /// The server has finished stopping.
+        /// </summary>
+        Stopped,
+
         /// <summary>
         /// The server is currenctly starting, but has not yet finished initialization.
         /// </summary>
@@ -28,11 +32,6 @@ namespace MUnique.OpenMU.Interfaces
         /// The server is not available anymore and is stopping it's services.
         /// </summary>
         Stopping,
-
-        /// <summary>
-        /// The server has finished stopping.
-        /// </summary>
-        Stopped
     }
 
     /// <summary>
@@ -67,13 +66,13 @@ namespace MUnique.OpenMU.Interfaces
         /// <param name="guildId">The guild identifier.</param>
         /// <param name="sender">The sender character name.</param>
         /// <param name="message">The message which should be sent.</param>
-        void GuildChatMessage(Guid guildId, string sender, string message);
+        void GuildChatMessage(uint guildId, string sender, string message);
 
         /// <summary>
         /// Notifies the game server that a guild got deleted.
         /// </summary>
         /// <param name="guildId">The guild identifier.</param>
-        void GuildDeleted(Guid guildId);
+        void GuildDeleted(uint guildId);
 
         /// <summary>
         /// Notifies the game server that a guild member got removed from a guild.
@@ -84,10 +83,10 @@ namespace MUnique.OpenMU.Interfaces
         /// <summary>
         /// Sends a chat message to all connected alliance members.
         /// </summary>
-        /// <param name="guildID">The guild identifier.</param>
+        /// <param name="guildId">The guild identifier.</param>
         /// <param name="sender">The sender character name.</param>
         /// <param name="message">The message.</param>
-        void AllianceChatMessage(Guid guildID, string sender, string message);
+        void AllianceChatMessage(uint guildId, string sender, string message);
 
         /// <summary>
         /// Notifies the game server that a letter got received for an online player.
@@ -151,6 +150,20 @@ namespace MUnique.OpenMU.Interfaces
         /// <param name="mapId">The map identifier.</param>
         /// <param name="worldObserverId">The world observer identifier.</param>
         void UnregisterMapObserver(ushort mapId, ushort worldObserverId);
+
+        /// <summary>
+        /// Disconnects the player from the game.
+        /// </summary>
+        /// <param name="playerName">Name of the player.</param>
+        /// <returns>True, if the player has been disconnected; False, otherwise.</returns>
+        bool DisconnectPlayer(string playerName);
+
+        /// <summary>
+        /// Bans the player from the game.
+        /// </summary>
+        /// <param name="playerName">Name of the player.</param>
+        /// <returns>True, if the player has been banned; False, otherwise.</returns>
+        bool BanPlayer(string playerName);
     }
 
     /// <summary>
@@ -195,9 +208,25 @@ namespace MUnique.OpenMU.Interfaces
     public interface IGameMapInfo
     {
         /// <summary>
-        /// Gets the map definition.
+        /// Gets the map number.
         /// </summary>
-        GameMapDefinition Map { get; }
+        short MapNumber { get; }
+
+        /// <summary>
+        /// Gets the name of the map.
+        /// </summary>
+        /// <value>
+        /// The name of the map.
+        /// </value>
+        string MapName { get; }
+
+        /// <summary>
+        /// Gets the terrain data of the map.
+        /// </summary>
+        /// <value>
+        /// The terrain data.
+        /// </value>
+        byte[] TerrainData { get; }
 
         /// <summary>
         /// Gets the players which are currently playing on the map.

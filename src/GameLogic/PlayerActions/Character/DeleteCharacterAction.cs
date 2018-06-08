@@ -58,24 +58,14 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.Character
                 return CharacterDeleteResult.Unsuccessful;
             }
 
-            if (player.Account.SecurityCode != securityCode)
+            if (player.Account.SecurityCode != null && player.Account.SecurityCode != securityCode)
             {
                 return CharacterDeleteResult.WrongSecurityCode;
             }
 
-            using (this.gameContext.RepositoryManager.UseContext(player.PersistenceContext))
-            {
-                player.Account.Characters.Remove(character);
-
-                // TODO: remove the following stuff - it should be done automatically!
-                var repository = this.gameContext.RepositoryManager.GetRepository<Character>();
-                if (repository.Delete(character))
-                {
-                    return CharacterDeleteResult.Successful;
-                }
-            }
-
-            return CharacterDeleteResult.Unsuccessful;
+            player.Account.Characters.Remove(character);
+            player.PersistenceContext.Delete(character);
+            return CharacterDeleteResult.Successful;
         }
     }
 }

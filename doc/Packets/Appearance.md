@@ -51,12 +51,14 @@ Please read this table like a stream of bits. E.g. if there are 8 bits of 1 byte
 | 11 | 1 | bit | Left hand item ancient option flag |
 | 11 | 1 | bit | Right hand item ancient option flag |
 | 11 | 1 | bit | Full ancient set flag |
-| 12 | 4 | bit | Left hand item group. 0xF = empty |
+| 12 | 3 | bit | Left hand item group. 111 = empty |
+| 12 | 1 | bit | unused or empty flag? |
 | 12 | 1 | bit | unused |
 | 12 | 1 | bit | Fenrir flag |
 | 12 | 1 | bit | unused |
 | 12 | 1 | bit | Dark horse flag |
-| 13 | 4 | bit | Right hand item group. 0xF = empty |
+| 13 | 3 | bit | Right hand item group. 111 = empty |
+| 13 | 1 | bit | unused or empty flag? |
 | 13 | 4 | bit | Helm item index (6-9th bit). 0xF = empty |
 | 14 | 4 | bit | Armor item index (6-9th bit). 0xF = empty |
 | 14 | 4 | bit | Pants item index (6-9th bit). 0xF = empty |
@@ -85,12 +87,12 @@ The bytes are represented in binary format. X means the bit is used by something
 
 | Item                  | 5th byte | 10th byte | 12th byte |
 |-----------------------|----------|-----------|-----------|
-| Guardian Angel        | xxxx0000 |
-| Imp                   | xxxx0001 |
-| Unicorn               | xxxx0010 |
-| Dinorant              | xxxx0011 | xxxxxxx1  ||
-| Fenrir                | xxxx0011 |           | xxxxxx1x  |
-| Default               | xxxx1111 |
+| Guardian Angel        | xxxxxx00 |
+| Imp                   | xxxxxx01 |
+| Unicorn               | xxxxxx10 |
+| Dinorant              | xxxxxx11 | xxxxxxx1  ||
+| Fenrir                | xxxxxx11 |           | xxxxxx1x  |
+| None                  | xxxxxx11 | xxxxxxx0  |
 
 
 And some other pets:
@@ -128,6 +130,7 @@ And some other pets:
 | Cape of Emperor       | Lord Emperor    | xxxx11xx | xxxxx101 |
 | Wing of Dimension     | Dimension Master| xxxx11xx | xxxxx110 |
 | Cape of Overrule      | Fist Master     | xxxx11xx | xxxxx111 |
+| None                  |                 | xxxx00xx | xxxxx000 |
 
 #### Small Wings ####
 

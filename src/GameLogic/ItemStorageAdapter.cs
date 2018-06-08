@@ -81,7 +81,8 @@ namespace MUnique.OpenMU.GameLogic
             /// <inheritdoc />
             public void Clear()
             {
-                throw new System.NotImplementedException();
+                var itemsToRemove = this.ToList();
+                itemsToRemove.ForEach(item => this.actualCollection.Remove(item));
             }
 
             /// <inheritdoc />
@@ -90,7 +91,12 @@ namespace MUnique.OpenMU.GameLogic
             /// <inheritdoc />
             public void CopyTo(Item[] array, int arrayIndex)
             {
-                throw new System.NotImplementedException();
+                var i = arrayIndex;
+                foreach (var item in this)
+                {
+                    array[i] = item;
+                    i++;
+                }
             }
 
             /// <inheritdoc />

@@ -15,12 +15,7 @@ namespace MUnique.OpenMU.DataModel.Entities
     public class Item
     {
         /// <summary>
-        /// Gets or sets the storage where the item is stored.
-        /// </summary>
-        public virtual ItemStorage Storage { get; set; }
-
-        /// <summary>
-        /// Gets or sets the item slot in the <see cref="Storage"/>.
+        /// Gets or sets the item slot in the <see cref="ItemStorage"/>.
         /// </summary>
         public byte ItemSlot { get; set; }
 
@@ -58,6 +53,11 @@ namespace MUnique.OpenMU.DataModel.Entities
         /// Gets or sets the socket count. This limits the amount of socket options in the <see cref="ItemOptions"/>.
         /// </summary>
         public int SocketCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the price which was set by the player for his personal store.
+        /// </summary>
+        public int? StorePrice { get; set; }
 
         /// <summary>
         /// Assigns the values of another item to this item.

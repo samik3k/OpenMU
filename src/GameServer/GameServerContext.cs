@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameServer
 {
+    using System;
     using System.Linq;
     using MUnique.OpenMU.DataModel.Configuration;
     using MUnique.OpenMU.GameLogic;
@@ -24,14 +25,14 @@ namespace MUnique.OpenMU.GameServer
         /// <param name="guildServer">The guild server.</param>
         /// <param name="loginServer">The login server.</param>
         /// <param name="friendServer">The friend server.</param>
-        /// <param name="repositoryManager">The repository manager.</param>
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
         public GameServerContext(
             GameServerDefinition gameServerDefinition,
             IGuildServer guildServer,
             ILoginServer loginServer,
             IFriendServer friendServer,
-            IRepositoryManager repositoryManager)
-            : base(gameServerDefinition.GameConfiguration, repositoryManager)
+            IPersistenceContextProvider persistenceContextProvider)
+            : base(gameServerDefinition.GameConfiguration, persistenceContextProvider)
         {
             this.Id = gameServerDefinition.ServerID;
             this.GuildServer = guildServer;
@@ -65,5 +66,53 @@ namespace MUnique.OpenMU.GameServer
 
         /// <inheritdoc/>
         public GameServerConfiguration ServerConfiguration { get; }
+
+        /// <inheritdoc/>
+        public override void AddPlayer(Player player)
+        {
+            base.AddPlayer(player);
+            player.PlayerLeftWorld += this.PlayerLeftWorld;
+            player.PlayerEnteredWorld += this.PlayerEnteredWorld;
+        }
+
+        /// <inheritdoc/>
+        public override void RemovePlayer(Player player)
+        {
+            if (player == null)
+            {
+                return;
+            }
+
+            player.PlayerEnteredWorld -= this.PlayerEnteredWorld;
+            player.PlayerLeftWorld -= this.PlayerLeftWorld;
+            base.RemovePlayer(player);
+        }
+
+        private void PlayerEnteredWorld(object sender, EventArgs e)
+        {
+            if (sender is Player player)
+            {
+                this.FriendServer.SetOnlineState(player.SelectedCharacter.Id, player.SelectedCharacter.Name, this.Id);
+                player.GuildStatus = this.GuildServer.PlayerEnteredGame(player.SelectedCharacter.Id, player.SelectedCharacter.Name, this.Id);
+                if (player.GuildStatus != null)
+                {
+                    // = this.GuildServer.GuildMemberEnterGame(player.SelectedCharacter.GuildMemberInfo.GuildId, player.SelectedCharacter.Name, this.Id);
+                    // this.GuildCache.RegisterShortId(player.SelectedCharacter.GuildMemberInfo.GuildId, player.GuildStatus);
+                }
+            }
+        }
+
+        private void PlayerLeftWorld(object sender, EventArgs e)
+        {
+            if (sender is Player player)
+            {
+                this.FriendServer.SetOnlineState(player.SelectedCharacter.Id, player.SelectedCharacter.Name, 0xFF);
+                if (player.GuildStatus != null)
+                {
+                    this.GuildServer.GuildMemberLeftGame(player.GuildStatus.GuildId, player.SelectedCharacter.Id, this.Id);
+                    player.GuildStatus = null;
+                }
+            }
+        }
     }
 }

@@ -15,6 +15,144 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations.Schema;
+    using Newtonsoft.Json;
+
+    /// <summary>
+    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.Guild"/>.
+    /// </summary>
+    [Table("Guild", Schema = "data")]
+    internal partial class Guild : MUnique.OpenMU.DataModel.Entities.Guild, IIdentifiable
+    {        
+
+        protected void InitJoinCollections()
+        {
+        }
+public ICollection<GuildMember> RawMembers { get; } = new List<GuildMember>();        
+        /// <inheritdoc/>
+        [NotMapped]
+        public override ICollection<MUnique.OpenMU.DataModel.Entities.GuildMember> Members
+        {
+            get
+            {
+                return base.Members ?? (base.Members = new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.GuildMember, GuildMember>(this.RawMembers)); 
+            }
+        }
+
+                /// <summary>
+        /// Gets or sets the identifier of <see cref="Hostility"/>.
+        /// </summary>
+        public Guid? HostilityId { get; set; }
+        
+        [ForeignKey("HostilityId")]
+        public Guild RawHostility
+        { 
+            get { return base.Hostility as Guild; }
+            set { base.Hostility = value; } 
+        }
+                
+        /// <inheritdoc/>
+        [NotMapped]
+        public override MUnique.OpenMU.Interfaces.Guild Hostility
+        {
+            get
+            {
+                return base.Hostility;
+            }
+            
+            set
+            {
+                base.Hostility = value;
+                this.HostilityId = this.RawHostility?.Id;
+            }
+        }
+
+                /// <summary>
+        /// Gets or sets the identifier of <see cref="AllianceGuild"/>.
+        /// </summary>
+        public Guid? AllianceGuildId { get; set; }
+        
+        [ForeignKey("AllianceGuildId")]
+        public Guild RawAllianceGuild
+        { 
+            get { return base.AllianceGuild as Guild; }
+            set { base.AllianceGuild = value; } 
+        }
+                
+        /// <inheritdoc/>
+        [NotMapped]
+        public override MUnique.OpenMU.Interfaces.Guild AllianceGuild
+        {
+            get
+            {
+                return base.AllianceGuild;
+            }
+            
+            set
+            {
+                base.AllianceGuild = value;
+                this.AllianceGuildId = this.RawAllianceGuild?.Id;
+            }
+        }
+
+                
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            var baseObject = obj as IIdentifiable;
+            if (baseObject != null)
+            {
+                return baseObject.Id == this.Id;
+            }
+
+            return base.Equals(obj);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return this.Id.GetHashCode();
+        }
+    }
+
+    /// <summary>
+    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.GuildMember"/>.
+    /// </summary>
+    [Table("GuildMember", Schema = "data")]
+    internal partial class GuildMember : MUnique.OpenMU.DataModel.Entities.GuildMember, IIdentifiable
+    {
+        public GuildMember()
+        {
+            this.InitJoinCollections();
+        } 
+
+        public GuildMember(System.Guid id)
+          : base (id)
+        {
+            this.InitJoinCollections();
+        }        
+
+        protected void InitJoinCollections()
+        {
+        }
+        
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            var baseObject = obj as IIdentifiable;
+            if (baseObject != null)
+            {
+                return baseObject.Id == this.Id;
+            }
+
+            return base.Equals(obj);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return this.Id.GetHashCode();
+        }
+    }
 
     /// <summary>
     /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.ItemOptionLink"/>.
@@ -38,15 +176,15 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         public Guid? ItemOptionId { get; set; }
         
         [ForeignKey("ItemOptionId")]
-        public ItemOption RawItemOption
+        public IncreasableItemOption RawItemOption
         { 
-            get { return base.ItemOption as ItemOption; }
+            get { return base.ItemOption as IncreasableItemOption; }
             set { base.ItemOption = value; } 
         }
                 
         /// <inheritdoc/>
         [NotMapped]
-        public override MUnique.OpenMU.DataModel.Configuration.Items.ItemOption ItemOption
+        public override MUnique.OpenMU.DataModel.Configuration.Items.IncreasableItemOption ItemOption
         {
             get
             {
@@ -94,7 +232,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         protected void InitJoinCollections()
         {
           
-            this.UnlockedCharacterClasses = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.CharacterClass, AccountCharacterClass>(this.JoinedCharacterClasss, joinEntity => joinEntity.CharacterClass, entity => new AccountCharacterClass { Account = this, AccountId = this.Id, CharacterClass = (CharacterClass)entity, CharacterClassId = ((CharacterClass)entity).Id});
+            this.UnlockedCharacterClasses = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.CharacterClass, AccountCharacterClass>(this.JoinedUnlockedCharacterClasses, joinEntity => joinEntity.CharacterClass, entity => new AccountCharacterClass { Account = this, AccountId = this.Id, CharacterClass = (CharacterClass)entity, CharacterClassId = ((CharacterClass)entity).Id});
         }
 
         /// <summary>
@@ -130,7 +268,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             }
         }
 
-        public ICollection<Character> RawCharacters { get; set; } = new List<Character>();        
+        public ICollection<Character> RawCharacters { get; } = new List<Character>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Entities.Character> Characters
@@ -233,7 +371,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             }
         }
 
-        public ICollection<StatAttribute> RawAttributes { get; set; } = new List<StatAttribute>();        
+        public ICollection<StatAttribute> RawAttributes { get; } = new List<StatAttribute>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.AttributeSystem.StatAttribute> Attributes
@@ -244,46 +382,18 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             }
         }
 
-                /// <summary>
-        /// Gets or sets the identifier of <see cref="GuildMemberInfo"/>.
-        /// </summary>
-        public Guid? GuildMemberInfoId { get; set; }
-        
-        [ForeignKey("GuildMemberInfoId")]
-        public GuildMemberInfo RawGuildMemberInfo
-        { 
-            get { return base.GuildMemberInfo as GuildMemberInfo; }
-            set { base.GuildMemberInfo = value; } 
-        }
-                
+        public IList<LetterHeader> RawLetters { get; } = new List<LetterHeader>();        
         /// <inheritdoc/>
         [NotMapped]
-        public override MUnique.OpenMU.DataModel.Entities.GuildMemberInfo GuildMemberInfo
+        public override IList<MUnique.OpenMU.Interfaces.LetterHeader> Letters
         {
             get
             {
-                return base.GuildMemberInfo;
-            }
-            
-            set
-            {
-                base.GuildMemberInfo = value;
-                this.GuildMemberInfoId = this.RawGuildMemberInfo?.Id;
+                return base.Letters ?? (base.Letters = new ListAdapter<MUnique.OpenMU.Interfaces.LetterHeader, LetterHeader>(this.RawLetters)); 
             }
         }
 
-        public IList<LetterHeader> RawLetters { get; set; } = new List<LetterHeader>();        
-        /// <inheritdoc/>
-        [NotMapped]
-        public override IList<MUnique.OpenMU.DataModel.Entities.LetterHeader> Letters
-        {
-            get
-            {
-                return base.Letters ?? (base.Letters = new ListAdapter<MUnique.OpenMU.DataModel.Entities.LetterHeader, LetterHeader>(this.RawLetters)); 
-            }
-        }
-
-        public ICollection<SkillEntry> RawLearnedSkills { get; set; } = new List<SkillEntry>();        
+        public ICollection<SkillEntry> RawLearnedSkills { get; } = new List<SkillEntry>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Entities.SkillEntry> LearnedSkills
@@ -323,163 +433,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         }
 
                 
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            var baseObject = obj as IIdentifiable;
-            if (baseObject != null)
-            {
-                return baseObject.Id == this.Id;
-            }
-
-            return base.Equals(obj);
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return this.Id.GetHashCode();
-        }
-    }
-
-    /// <summary>
-    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.FriendViewItem"/>.
-    /// </summary>
-    [Table("FriendViewItem", Schema = "data")]
-    internal partial class FriendViewItem : MUnique.OpenMU.DataModel.Entities.FriendViewItem, IIdentifiable
-    {        
-
-        protected void InitJoinCollections()
-        {
-        }
-        
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            var baseObject = obj as IIdentifiable;
-            if (baseObject != null)
-            {
-                return baseObject.Id == this.Id;
-            }
-
-            return base.Equals(obj);
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return this.Id.GetHashCode();
-        }
-    }
-
-    /// <summary>
-    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.Guild"/>.
-    /// </summary>
-    [Table("Guild", Schema = "data")]
-    internal partial class Guild : MUnique.OpenMU.DataModel.Entities.Guild, IIdentifiable
-    {        
-
-        protected void InitJoinCollections()
-        {
-        }
-        /// <summary>
-        /// Gets or sets the identifier of <see cref="Hostility"/>.
-        /// </summary>
-        public Guid? HostilityId { get; set; }
-        
-        [ForeignKey("HostilityId")]
-        public Guild RawHostility
-        { 
-            get { return base.Hostility as Guild; }
-            set { base.Hostility = value; } 
-        }
-                
-        /// <inheritdoc/>
-        [NotMapped]
-        public override MUnique.OpenMU.DataModel.Entities.Guild Hostility
-        {
-            get
-            {
-                return base.Hostility;
-            }
-            
-            set
-            {
-                base.Hostility = value;
-                this.HostilityId = this.RawHostility?.Id;
-            }
-        }
-
-                /// <summary>
-        /// Gets or sets the identifier of <see cref="AllianceGuild"/>.
-        /// </summary>
-        public Guid? AllianceGuildId { get; set; }
-        
-        [ForeignKey("AllianceGuildId")]
-        public Guild RawAllianceGuild
-        { 
-            get { return base.AllianceGuild as Guild; }
-            set { base.AllianceGuild = value; } 
-        }
-                
-        /// <inheritdoc/>
-        [NotMapped]
-        public override MUnique.OpenMU.DataModel.Entities.Guild AllianceGuild
-        {
-            get
-            {
-                return base.AllianceGuild;
-            }
-            
-            set
-            {
-                base.AllianceGuild = value;
-                this.AllianceGuildId = this.RawAllianceGuild?.Id;
-            }
-        }
-
-        public ICollection<GuildMemberInfo> RawMembers { get; set; } = new List<GuildMemberInfo>();        
-        /// <inheritdoc/>
-        [NotMapped]
-        public override ICollection<MUnique.OpenMU.DataModel.Entities.GuildMemberInfo> Members
-        {
-            get
-            {
-                return base.Members ?? (base.Members = new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.GuildMemberInfo, GuildMemberInfo>(this.RawMembers)); 
-            }
-        }
-
-                
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            var baseObject = obj as IIdentifiable;
-            if (baseObject != null)
-            {
-                return baseObject.Id == this.Id;
-            }
-
-            return base.Equals(obj);
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return this.Id.GetHashCode();
-        }
-    }
-
-    /// <summary>
-    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.GuildMemberInfo"/>.
-    /// </summary>
-    [Table("GuildMemberInfo", Schema = "data")]
-    internal partial class GuildMemberInfo : MUnique.OpenMU.DataModel.Entities.GuildMemberInfo, IIdentifiable
-    {        
-
-        protected void InitJoinCollections()
-        {
-        }
-        
         /// <inheritdoc/>
         public override bool Equals(object obj)
         {
@@ -543,6 +496,17 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             }
         }
 
+        public ICollection<ItemAppearance> RawEquippedItems { get; } = new List<ItemAppearance>();        
+        /// <inheritdoc/>
+        [NotMapped]
+        public override ICollection<MUnique.OpenMU.DataModel.Entities.ItemAppearance> EquippedItems
+        {
+            get
+            {
+                return base.EquippedItems ?? (base.EquippedItems = new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.ItemAppearance, ItemAppearance>(this.RawEquippedItems)); 
+            }
+        }
+
                 
         /// <inheritdoc/>
         public override bool Equals(object obj)
@@ -586,34 +550,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Gets or sets the identifier of <see cref="Storage"/>.
-        /// </summary>
-        public Guid? StorageId { get; set; }
-        
-        [ForeignKey("StorageId")]
-        public ItemStorage RawStorage
-        { 
-            get { return base.Storage as ItemStorage; }
-            set { base.Storage = value; } 
-        }
-                
-        /// <inheritdoc/>
-        [NotMapped]
-        public override MUnique.OpenMU.DataModel.Entities.ItemStorage Storage
-        {
-            get
-            {
-                return base.Storage;
-            }
-            
-            set
-            {
-                base.Storage = value;
-                this.StorageId = this.RawStorage?.Id;
-            }
-        }
-
-                /// <summary>
         /// Gets or sets the identifier of <see cref="Definition"/>.
         /// </summary>
         public Guid? DefinitionId { get; set; }
@@ -641,7 +577,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             }
         }
 
-        public ICollection<ItemOptionLink> RawItemOptions { get; set; } = new List<ItemOptionLink>();        
+        public ICollection<ItemOptionLink> RawItemOptions { get; } = new List<ItemOptionLink>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Entities.ItemOptionLink> ItemOptions
@@ -677,10 +613,16 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
     /// </summary>
     [Table("ItemAppearance", Schema = "data")]
     internal partial class ItemAppearance : MUnique.OpenMU.DataModel.Entities.ItemAppearance, IIdentifiable
-    {        
+    {
+        public ItemAppearance()
+        {
+            this.InitJoinCollections();
+        }         
 
         protected void InitJoinCollections()
         {
+          
+            this.VisibleOptions = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionType, ItemAppearanceItemOptionType>(this.JoinedVisibleOptions, joinEntity => joinEntity.ItemOptionType, entity => new ItemAppearanceItemOptionType { ItemAppearance = this, ItemAppearanceId = this.Id, ItemOptionType = (ItemOptionType)entity, ItemOptionTypeId = ((ItemOptionType)entity).Id});
         }
 
         /// <summary>
@@ -688,7 +630,35 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         /// </summary>
         public Guid Id { get; set; }
 
+        /// <summary>
+        /// Gets or sets the identifier of <see cref="Definition"/>.
+        /// </summary>
+        public Guid? DefinitionId { get; set; }
         
+        [ForeignKey("DefinitionId")]
+        public ItemDefinition RawDefinition
+        { 
+            get { return base.Definition as ItemDefinition; }
+            set { base.Definition = value; } 
+        }
+                
+        /// <inheritdoc/>
+        [NotMapped]
+        public override MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition Definition
+        {
+            get
+            {
+                return base.Definition;
+            }
+            
+            set
+            {
+                base.Definition = value;
+                this.DefinitionId = this.RawDefinition?.Id;
+            }
+        }
+
+                
         /// <inheritdoc/>
         public override bool Equals(object obj)
         {
@@ -724,7 +694,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<Item> RawItems { get; set; } = new List<Item>();        
+public ICollection<Item> RawItems { get; } = new List<Item>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Entities.Item> Items
@@ -779,7 +749,7 @@ public ICollection<Item> RawItems { get; set; } = new List<Item>();
                 
         /// <inheritdoc/>
         [NotMapped]
-        public override MUnique.OpenMU.DataModel.Entities.LetterHeader Header
+        public override MUnique.OpenMU.Interfaces.LetterHeader Header
         {
             get
             {
@@ -822,36 +792,6 @@ public ICollection<Item> RawItems { get; set; } = new List<Item>();
         }
 
                 
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            var baseObject = obj as IIdentifiable;
-            if (baseObject != null)
-            {
-                return baseObject.Id == this.Id;
-            }
-
-            return base.Equals(obj);
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return this.Id.GetHashCode();
-        }
-    }
-
-    /// <summary>
-    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.DataModel.Entities.LetterHeader"/>.
-    /// </summary>
-    [Table("LetterHeader", Schema = "data")]
-    internal partial class LetterHeader : MUnique.OpenMU.DataModel.Entities.LetterHeader, IIdentifiable
-    {        
-
-        protected void InitJoinCollections()
-        {
-        }
-        
         /// <inheritdoc/>
         public override bool Equals(object obj)
         {
@@ -1079,7 +1019,7 @@ public ICollection<Item> RawItems { get; set; } = new List<Item>();
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();        
+public ICollection<JewelMix> RawJewelMixes { get; } = new List<JewelMix>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.JewelMix> JewelMixes
@@ -1090,7 +1030,18 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<DropItemGroup> RawBaseDropItemGroups { get; set; } = new List<DropItemGroup>();        
+        public ICollection<WarpInfo> RawWarpList { get; } = new List<WarpInfo>();        
+        /// <inheritdoc/>
+        [NotMapped]
+        public override ICollection<MUnique.OpenMU.DataModel.Configuration.WarpInfo> WarpList
+        {
+            get
+            {
+                return base.WarpList ?? (base.WarpList = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.WarpInfo, WarpInfo>(this.RawWarpList)); 
+            }
+        }
+
+        public ICollection<DropItemGroup> RawBaseDropItemGroups { get; } = new List<DropItemGroup>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.DropItemGroup> BaseDropItemGroups
@@ -1101,7 +1052,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<Skill> RawSkills { get; set; } = new List<Skill>();        
+        public ICollection<Skill> RawSkills { get; } = new List<Skill>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Skill> Skills
@@ -1112,7 +1063,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<CharacterClass> RawCharacterClasses { get; set; } = new List<CharacterClass>();        
+        public ICollection<CharacterClass> RawCharacterClasses { get; } = new List<CharacterClass>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.CharacterClass> CharacterClasses
@@ -1123,7 +1074,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<ItemDefinition> RawItems { get; set; } = new List<ItemDefinition>();        
+        public ICollection<ItemDefinition> RawItems { get; } = new List<ItemDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition> Items
@@ -1134,7 +1085,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<ItemSlotType> RawItemSlotTypes { get; set; } = new List<ItemSlotType>();        
+        public ICollection<ItemSlotType> RawItemSlotTypes { get; } = new List<ItemSlotType>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemSlotType> ItemSlotTypes
@@ -1145,7 +1096,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<ItemOptionDefinition> RawItemOptions { get; set; } = new List<ItemOptionDefinition>();        
+        public ICollection<ItemOptionDefinition> RawItemOptions { get; } = new List<ItemOptionDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionDefinition> ItemOptions
@@ -1156,7 +1107,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<ItemOptionType> RawItemOptionTypes { get; set; } = new List<ItemOptionType>();        
+        public ICollection<ItemOptionType> RawItemOptionTypes { get; } = new List<ItemOptionType>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionType> ItemOptionTypes
@@ -1167,7 +1118,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<ItemSetGroup> RawItemSetGroups { get; set; } = new List<ItemSetGroup>();        
+        public ICollection<ItemSetGroup> RawItemSetGroups { get; } = new List<ItemSetGroup>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemSetGroup> ItemSetGroups
@@ -1178,7 +1129,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<GameMapDefinition> RawMaps { get; set; } = new List<GameMapDefinition>();        
+        public ICollection<GameMapDefinition> RawMaps { get; } = new List<GameMapDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.GameMapDefinition> Maps
@@ -1189,7 +1140,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<MonsterDefinition> RawMonsters { get; set; } = new List<MonsterDefinition>();        
+        public ICollection<MonsterDefinition> RawMonsters { get; } = new List<MonsterDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.MonsterDefinition> Monsters
@@ -1200,7 +1151,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<AttributeDefinition> RawAttributes { get; set; } = new List<AttributeDefinition>();        
+        public ICollection<AttributeDefinition> RawAttributes { get; } = new List<AttributeDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.AttributeSystem.AttributeDefinition> Attributes
@@ -1211,7 +1162,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<MagicEffectDefinition> RawMagicEffects { get; set; } = new List<MagicEffectDefinition>();        
+        public ICollection<MagicEffectDefinition> RawMagicEffects { get; } = new List<MagicEffectDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.MagicEffectDefinition> MagicEffects
@@ -1222,7 +1173,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
             }
         }
 
-        public ICollection<MasterSkillRoot> RawMasterSkillRoots { get; set; } = new List<MasterSkillRoot>();        
+        public ICollection<MasterSkillRoot> RawMasterSkillRoots { get; } = new List<MasterSkillRoot>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.MasterSkillRoot> MasterSkillRoots
@@ -1350,10 +1301,16 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
     /// </summary>
     [Table("GameServerConfiguration", Schema = "config")]
     internal partial class GameServerConfiguration : MUnique.OpenMU.DataModel.Configuration.GameServerConfiguration, IIdentifiable
-    {        
+    {
+        public GameServerConfiguration()
+        {
+            this.InitJoinCollections();
+        }         
 
         protected void InitJoinCollections()
         {
+          
+            this.Maps = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.GameMapDefinition, GameServerConfigurationGameMapDefinition>(this.JoinedMaps, joinEntity => joinEntity.GameMapDefinition, entity => new GameServerConfigurationGameMapDefinition { GameServerConfiguration = this, GameServerConfigurationId = this.Id, GameMapDefinition = (GameMapDefinition)entity, GameMapDefinitionId = ((GameMapDefinition)entity).Id});
         }
 
         /// <summary>
@@ -1361,7 +1318,7 @@ public ICollection<JewelMix> RawJewelMixes { get; set; } = new List<JewelMix>();
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<MainPacketHandlerConfiguration> RawSupportedPacketHandlers { get; set; } = new List<MainPacketHandlerConfiguration>();        
+public ICollection<MainPacketHandlerConfiguration> RawSupportedPacketHandlers { get; } = new List<MainPacketHandlerConfiguration>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.MainPacketHandlerConfiguration> SupportedPacketHandlers
@@ -1369,17 +1326,6 @@ public ICollection<MainPacketHandlerConfiguration> RawSupportedPacketHandlers { 
             get
             {
                 return base.SupportedPacketHandlers ?? (base.SupportedPacketHandlers = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.MainPacketHandlerConfiguration, MainPacketHandlerConfiguration>(this.RawSupportedPacketHandlers)); 
-            }
-        }
-
-        public ICollection<GameMapDefinition> RawMaps { get; set; } = new List<GameMapDefinition>();        
-        /// <inheritdoc/>
-        [NotMapped]
-        public override ICollection<MUnique.OpenMU.DataModel.Configuration.GameMapDefinition> Maps
-        {
-            get
-            {
-                return base.Maps ?? (base.Maps = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.GameMapDefinition, GameMapDefinition>(this.RawMaps)); 
             }
         }
 
@@ -1453,7 +1399,7 @@ public ICollection<MainPacketHandlerConfiguration> RawSupportedPacketHandlers { 
         protected void InitJoinCollections()
         {
           
-            this.PossibleItems = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition, DropItemGroupItemDefinition>(this.JoinedItemDefinitions, joinEntity => joinEntity.ItemDefinition, entity => new DropItemGroupItemDefinition { DropItemGroup = this, DropItemGroupId = this.Id, ItemDefinition = (ItemDefinition)entity, ItemDefinitionId = ((ItemDefinition)entity).Id});
+            this.PossibleItems = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemDefinition, DropItemGroupItemDefinition>(this.JoinedPossibleItems, joinEntity => joinEntity.ItemDefinition, entity => new DropItemGroupItemDefinition { DropItemGroup = this, DropItemGroupId = this.Id, ItemDefinition = (ItemDefinition)entity, ItemDefinitionId = ((ItemDefinition)entity).Id});
         }
 
         /// <summary>
@@ -1625,7 +1571,7 @@ public ICollection<MainPacketHandlerConfiguration> RawSupportedPacketHandlers { 
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<PacketHandlerConfiguration> RawPacketHandlers { get; set; } = new List<PacketHandlerConfiguration>();        
+public ICollection<PacketHandlerConfiguration> RawPacketHandlers { get; } = new List<PacketHandlerConfiguration>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.PacketHandlerConfiguration> PacketHandlers
@@ -1670,7 +1616,7 @@ public ICollection<PacketHandlerConfiguration> RawPacketHandlers { get; set; } =
         protected void InitJoinCollections()
         {
           
-            this.RequiredMasterSkills = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Skill, MasterSkillDefinitionSkill>(this.JoinedSkills, joinEntity => joinEntity.Skill, entity => new MasterSkillDefinitionSkill { MasterSkillDefinition = this, MasterSkillDefinitionId = this.Id, Skill = (Skill)entity, SkillId = ((Skill)entity).Id});
+            this.RequiredMasterSkills = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Skill, MasterSkillDefinitionSkill>(this.JoinedRequiredMasterSkills, joinEntity => joinEntity.Skill, entity => new MasterSkillDefinitionSkill { MasterSkillDefinition = this, MasterSkillDefinitionId = this.Id, Skill = (Skill)entity, SkillId = ((Skill)entity).Id});
         }
 
         /// <summary>
@@ -2018,7 +1964,7 @@ public ICollection<PacketHandlerConfiguration> RawPacketHandlers { get; set; } =
             }
         }
 
-        public ICollection<ItemCrafting> RawItemCraftings { get; set; } = new List<ItemCrafting>();        
+        public ICollection<ItemCrafting> RawItemCraftings { get; } = new List<ItemCrafting>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.ItemCrafting.ItemCrafting> ItemCraftings
@@ -2029,7 +1975,7 @@ public ICollection<PacketHandlerConfiguration> RawPacketHandlers { get; set; } =
             }
         }
 
-        public ICollection<MonsterAttribute> RawAttributes { get; set; } = new List<MonsterAttribute>();        
+        public ICollection<MonsterAttribute> RawAttributes { get; } = new List<MonsterAttribute>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.MonsterAttribute> Attributes
@@ -2076,7 +2022,7 @@ public ICollection<PacketHandlerConfiguration> RawPacketHandlers { get; set; } =
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<PacketHandlerConfiguration> RawSubPacketHandlers { get; set; } = new List<PacketHandlerConfiguration>();        
+public ICollection<PacketHandlerConfiguration> RawSubPacketHandlers { get; } = new List<PacketHandlerConfiguration>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.PacketHandlerConfiguration> SubPacketHandlers
@@ -2289,7 +2235,7 @@ public ICollection<PacketHandlerConfiguration> RawSubPacketHandlers { get; set; 
             }
         }
 
-        public ICollection<StatAttributeDefinition> RawStatAttributes { get; set; } = new List<StatAttributeDefinition>();        
+        public ICollection<StatAttributeDefinition> RawStatAttributes { get; } = new List<StatAttributeDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.StatAttributeDefinition> StatAttributes
@@ -2300,7 +2246,7 @@ public ICollection<PacketHandlerConfiguration> RawSubPacketHandlers { get; set; 
             }
         }
 
-        public ICollection<AttributeRelationship> RawAttributeCombinations { get; set; } = new List<AttributeRelationship>();        
+        public ICollection<AttributeRelationship> RawAttributeCombinations { get; } = new List<AttributeRelationship>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.AttributeSystem.AttributeRelationship> AttributeCombinations
@@ -2311,7 +2257,7 @@ public ICollection<PacketHandlerConfiguration> RawSubPacketHandlers { get; set; 
             }
         }
 
-        public ICollection<ConstValueAttribute> RawBaseAttributeValues { get; set; } = new List<ConstValueAttribute>();        
+        public ICollection<ConstValueAttribute> RawBaseAttributeValues { get; } = new List<ConstValueAttribute>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.AttributeSystem.ConstValueAttribute> BaseAttributeValues
@@ -2392,7 +2338,7 @@ public ICollection<PacketHandlerConfiguration> RawSubPacketHandlers { get; set; 
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<MonsterSpawnArea> RawMonsterSpawns { get; set; } = new List<MonsterSpawnArea>();        
+public ICollection<MonsterSpawnArea> RawMonsterSpawns { get; } = new List<MonsterSpawnArea>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.MonsterSpawnArea> MonsterSpawns
@@ -2403,53 +2349,53 @@ public ICollection<MonsterSpawnArea> RawMonsterSpawns { get; set; } = new List<M
             }
         }
 
-        public ICollection<EnterGate> RawGates { get; set; } = new List<EnterGate>();        
+        public ICollection<EnterGate> RawEnterGates { get; } = new List<EnterGate>();        
         /// <inheritdoc/>
         [NotMapped]
-        public override ICollection<MUnique.OpenMU.DataModel.Configuration.EnterGate> Gates
+        public override ICollection<MUnique.OpenMU.DataModel.Configuration.EnterGate> EnterGates
         {
             get
             {
-                return base.Gates ?? (base.Gates = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.EnterGate, EnterGate>(this.RawGates)); 
+                return base.EnterGates ?? (base.EnterGates = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.EnterGate, EnterGate>(this.RawEnterGates)); 
             }
         }
 
                 /// <summary>
-        /// Gets or sets the identifier of <see cref="DeathSafezone"/>.
+        /// Gets or sets the identifier of <see cref="SafezoneMap"/>.
         /// </summary>
-        public Guid? DeathSafezoneId { get; set; }
+        public Guid? SafezoneMapId { get; set; }
         
-        [ForeignKey("DeathSafezoneId")]
-        public ExitGate RawDeathSafezone
+        [ForeignKey("SafezoneMapId")]
+        public GameMapDefinition RawSafezoneMap
         { 
-            get { return base.DeathSafezone as ExitGate; }
-            set { base.DeathSafezone = value; } 
+            get { return base.SafezoneMap as GameMapDefinition; }
+            set { base.SafezoneMap = value; } 
         }
                 
         /// <inheritdoc/>
         [NotMapped]
-        public override MUnique.OpenMU.DataModel.Configuration.ExitGate DeathSafezone
+        public override MUnique.OpenMU.DataModel.Configuration.GameMapDefinition SafezoneMap
         {
             get
             {
-                return base.DeathSafezone;
+                return base.SafezoneMap;
             }
             
             set
             {
-                base.DeathSafezone = value;
-                this.DeathSafezoneId = this.RawDeathSafezone?.Id;
+                base.SafezoneMap = value;
+                this.SafezoneMapId = this.RawSafezoneMap?.Id;
             }
         }
 
-        public ICollection<ExitGate> RawSpawnGates { get; set; } = new List<ExitGate>();        
+        public ICollection<ExitGate> RawExitGates { get; } = new List<ExitGate>();        
         /// <inheritdoc/>
         [NotMapped]
-        public override ICollection<MUnique.OpenMU.DataModel.Configuration.ExitGate> SpawnGates
+        public override ICollection<MUnique.OpenMU.DataModel.Configuration.ExitGate> ExitGates
         {
             get
             {
-                return base.SpawnGates ?? (base.SpawnGates = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.ExitGate, ExitGate>(this.RawSpawnGates)); 
+                return base.ExitGates ?? (base.ExitGates = new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.ExitGate, ExitGate>(this.RawExitGates)); 
             }
         }
 
@@ -2551,9 +2497,9 @@ public ICollection<MonsterSpawnArea> RawMonsterSpawns { get; set; } = new List<M
         protected void InitJoinCollections()
         {
           
-            this.QualifiedCharacters = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.CharacterClass, SkillCharacterClass>(this.JoinedCharacterClasss, joinEntity => joinEntity.CharacterClass, entity => new SkillCharacterClass { Skill = this, SkillId = this.Id, CharacterClass = (CharacterClass)entity, CharacterClassId = ((CharacterClass)entity).Id});
+            this.QualifiedCharacters = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.CharacterClass, SkillCharacterClass>(this.JoinedQualifiedCharacters, joinEntity => joinEntity.CharacterClass, entity => new SkillCharacterClass { Skill = this, SkillId = this.Id, CharacterClass = (CharacterClass)entity, CharacterClassId = ((CharacterClass)entity).Id});
           
-            this.MasterDefinitions = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.MasterSkillDefinition, SkillMasterSkillDefinition>(this.JoinedMasterSkillDefinitions, joinEntity => joinEntity.MasterSkillDefinition, entity => new SkillMasterSkillDefinition { Skill = this, SkillId = this.Id, MasterSkillDefinition = (MasterSkillDefinition)entity, MasterSkillDefinitionId = ((MasterSkillDefinition)entity).Id});
+            this.MasterDefinitions = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.MasterSkillDefinition, SkillMasterSkillDefinition>(this.JoinedMasterDefinitions, joinEntity => joinEntity.MasterSkillDefinition, entity => new SkillMasterSkillDefinition { Skill = this, SkillId = this.Id, MasterSkillDefinition = (MasterSkillDefinition)entity, MasterSkillDefinitionId = ((MasterSkillDefinition)entity).Id});
         }
 
         /// <summary>
@@ -2561,7 +2507,7 @@ public ICollection<MonsterSpawnArea> RawMonsterSpawns { get; set; } = new List<M
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<AttributeRequirement> RawRequirements { get; set; } = new List<AttributeRequirement>();        
+public ICollection<AttributeRequirement> RawRequirements { get; } = new List<AttributeRequirement>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.AttributeRequirement> Requirements
@@ -2572,7 +2518,7 @@ public ICollection<AttributeRequirement> RawRequirements { get; set; } = new Lis
             }
         }
 
-        public ICollection<AttributeRequirement> RawConsumeRequirements { get; set; } = new List<AttributeRequirement>();        
+        public ICollection<AttributeRequirement> RawConsumeRequirements { get; } = new List<AttributeRequirement>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.AttributeRequirement> ConsumeRequirements
@@ -2611,7 +2557,7 @@ public ICollection<AttributeRequirement> RawRequirements { get; set; } = new Lis
             }
         }
 
-        public ICollection<SkillPowerUpDefinition> RawPassivePowerUps { get; set; } = new List<SkillPowerUpDefinition>();        
+        public ICollection<SkillPowerUpDefinition> RawPassivePowerUps { get; } = new List<SkillPowerUpDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override IDictionary<System.Int32, MUnique.OpenMU.DataModel.Attributes.PowerUpDefinition> PassivePowerUps
@@ -2622,7 +2568,7 @@ public ICollection<AttributeRequirement> RawRequirements { get; set; } = new Lis
             }
         }
 
-        public ICollection<LevelDependentDamage> RawAttackDamage { get; set; } = new List<LevelDependentDamage>();        
+        public ICollection<LevelDependentDamage> RawAttackDamage { get; } = new List<LevelDependentDamage>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.LevelDependentDamage> AttackDamage
@@ -2733,7 +2679,7 @@ public ICollection<AttributeRequirement> RawRequirements { get; set; } = new Lis
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = new List<ItemOptionOfLevel>();        
+public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; } = new List<ItemOptionOfLevel>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionOfLevel> LevelDependentOptions
@@ -2864,7 +2810,7 @@ public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = n
             }
         }
 
-        public ICollection<LevelBonus> RawBonusPerLevel { get; set; } = new List<LevelBonus>();        
+        public ICollection<LevelBonus> RawBonusPerLevel { get; } = new List<LevelBonus>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.LevelBonus> BonusPerLevel
@@ -2909,9 +2855,9 @@ public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = n
         protected void InitJoinCollections()
         {
           
-            this.QualifiedCharacters = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.CharacterClass, ItemDefinitionCharacterClass>(this.JoinedCharacterClasss, joinEntity => joinEntity.CharacterClass, entity => new ItemDefinitionCharacterClass { ItemDefinition = this, ItemDefinitionId = this.Id, CharacterClass = (CharacterClass)entity, CharacterClassId = ((CharacterClass)entity).Id});
+            this.QualifiedCharacters = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.CharacterClass, ItemDefinitionCharacterClass>(this.JoinedQualifiedCharacters, joinEntity => joinEntity.CharacterClass, entity => new ItemDefinitionCharacterClass { ItemDefinition = this, ItemDefinitionId = this.Id, CharacterClass = (CharacterClass)entity, CharacterClassId = ((CharacterClass)entity).Id});
           
-            this.PossibleItemSetGroups = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemSetGroup, ItemDefinitionItemSetGroup>(this.JoinedItemSetGroups, joinEntity => joinEntity.ItemSetGroup, entity => new ItemDefinitionItemSetGroup { ItemDefinition = this, ItemDefinitionId = this.Id, ItemSetGroup = (ItemSetGroup)entity, ItemSetGroupId = ((ItemSetGroup)entity).Id});
+            this.PossibleItemSetGroups = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemSetGroup, ItemDefinitionItemSetGroup>(this.JoinedPossibleItemSetGroups, joinEntity => joinEntity.ItemSetGroup, entity => new ItemDefinitionItemSetGroup { ItemDefinition = this, ItemDefinitionId = this.Id, ItemSetGroup = (ItemSetGroup)entity, ItemSetGroupId = ((ItemSetGroup)entity).Id});
         }
 
         /// <summary>
@@ -2975,7 +2921,7 @@ public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = n
             }
         }
 
-        public ICollection<ItemOptionDefinition> RawPossibleItemOptions { get; set; } = new List<ItemOptionDefinition>();        
+        public ICollection<ItemOptionDefinition> RawPossibleItemOptions { get; } = new List<ItemOptionDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionDefinition> PossibleItemOptions
@@ -2986,7 +2932,7 @@ public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = n
             }
         }
 
-        public ICollection<AttributeRequirement> RawRequirements { get; set; } = new List<AttributeRequirement>();        
+        public ICollection<AttributeRequirement> RawRequirements { get; } = new List<AttributeRequirement>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.AttributeRequirement> Requirements
@@ -2997,7 +2943,7 @@ public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = n
             }
         }
 
-        public ICollection<ItemBasePowerUpDefinition> RawBasePowerUpAttributes { get; set; } = new List<ItemBasePowerUpDefinition>();        
+        public ICollection<ItemBasePowerUpDefinition> RawBasePowerUpAttributes { get; } = new List<ItemBasePowerUpDefinition>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemBasePowerUpDefinition> BasePowerUpAttributes
@@ -3228,7 +3174,7 @@ public ICollection<ItemOptionOfLevel> RawLevelDependentOptions { get; set; } = n
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<IncreasableItemOption> RawPossibleOptions { get; set; } = new List<IncreasableItemOption>();        
+public ICollection<IncreasableItemOption> RawPossibleOptions { get; } = new List<IncreasableItemOption>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.IncreasableItemOption> PossibleOptions
@@ -3367,7 +3313,7 @@ public ICollection<IncreasableItemOption> RawPossibleOptions { get; set; } = new
         protected void InitJoinCollections()
         {
           
-            this.Options = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemOption, ItemSetGroupItemOption>(this.JoinedItemOptions, joinEntity => joinEntity.ItemOption, entity => new ItemSetGroupItemOption { ItemSetGroup = this, ItemSetGroupId = this.Id, ItemOption = (ItemOption)entity, ItemOptionId = ((ItemOption)entity).Id});
+            this.Options = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemOption, ItemSetGroupItemOption>(this.JoinedOptions, joinEntity => joinEntity.ItemOption, entity => new ItemSetGroupItemOption { ItemSetGroup = this, ItemSetGroupId = this.Id, ItemOption = (ItemOption)entity, ItemOptionId = ((ItemOption)entity).Id});
         }
 
         /// <summary>
@@ -3375,7 +3321,7 @@ public ICollection<IncreasableItemOption> RawPossibleOptions { get; set; } = new
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<ItemOfItemSet> RawItems { get; set; } = new List<ItemOfItemSet>();        
+public ICollection<ItemOfItemSet> RawItems { get; } = new List<ItemOfItemSet>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.DataModel.Configuration.Items.ItemOfItemSet> Items
@@ -3423,9 +3369,11 @@ public ICollection<ItemOfItemSet> RawItems { get; set; } = new List<ItemOfItemSe
         public Guid Id { get; set; }
 
 [Column("ItemSlots")]
+        [JsonProperty("ItemSlots")]
         public string RawItemSlots { get; set; }
                 
         /// <inheritdoc/>
+        [JsonIgnore]
         [NotMapped]
         public override ICollection<System.Int32> ItemSlots
         {
@@ -3515,7 +3463,7 @@ public ICollection<ItemOfItemSet> RawItems { get; set; } = new List<ItemOfItemSe
         protected void InitJoinCollections()
         {
           
-            this.RequiredItemOptions = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionType, ItemCraftingRequiredItemItemOptionType>(this.JoinedItemOptionTypes, joinEntity => joinEntity.ItemOptionType, entity => new ItemCraftingRequiredItemItemOptionType { ItemCraftingRequiredItem = this, ItemCraftingRequiredItemId = this.Id, ItemOptionType = (ItemOptionType)entity, ItemOptionTypeId = ((ItemOptionType)entity).Id});
+            this.RequiredItemOptions = new ManyToManyCollectionAdapter<MUnique.OpenMU.DataModel.Configuration.Items.ItemOptionType, ItemCraftingRequiredItemItemOptionType>(this.JoinedRequiredItemOptions, joinEntity => joinEntity.ItemOptionType, entity => new ItemCraftingRequiredItemItemOptionType { ItemCraftingRequiredItem = this, ItemCraftingRequiredItemId = this.Id, ItemOptionType = (ItemOptionType)entity, ItemOptionTypeId = ((ItemOptionType)entity).Id});
         }
 
         /// <summary>
@@ -3715,7 +3663,7 @@ public ICollection<ItemOfItemSet> RawItems { get; set; } = new List<ItemOfItemSe
         /// </summary>
         public Guid Id { get; set; }
 
-public IList<ItemCraftingRequiredItem> RawRequiredItems { get; set; } = new List<ItemCraftingRequiredItem>();        
+public IList<ItemCraftingRequiredItem> RawRequiredItems { get; } = new List<ItemCraftingRequiredItem>();        
         /// <inheritdoc/>
         [NotMapped]
         public override IList<MUnique.OpenMU.DataModel.Configuration.ItemCrafting.ItemCraftingRequiredItem> RequiredItems
@@ -3726,7 +3674,7 @@ public IList<ItemCraftingRequiredItem> RawRequiredItems { get; set; } = new List
             }
         }
 
-        public IList<ItemCraftingResultItem> RawResultItems { get; set; } = new List<ItemCraftingResultItem>();        
+        public IList<ItemCraftingResultItem> RawResultItems { get; } = new List<ItemCraftingResultItem>();        
         /// <inheritdoc/>
         [NotMapped]
         public override IList<MUnique.OpenMU.DataModel.Configuration.ItemCrafting.ItemCraftingResultItem> ResultItems
@@ -3865,7 +3813,7 @@ public IList<ItemCraftingRequiredItem> RawRequiredItems { get; set; } = new List
         /// </summary>
         public Guid Id { get; set; }
 
-public ICollection<AttributeRelationship> RawRelatedValues { get; set; } = new List<AttributeRelationship>();        
+public ICollection<AttributeRelationship> RawRelatedValues { get; } = new List<AttributeRelationship>();        
         /// <inheritdoc/>
         [NotMapped]
         public override ICollection<MUnique.OpenMU.AttributeSystem.AttributeRelationship> RelatedValues
@@ -4423,6 +4371,66 @@ public ICollection<AttributeRelationship> RawRelatedValues { get; set; } = new L
     }
 
     /// <summary>
+    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.Interfaces.LetterHeader"/>.
+    /// </summary>
+    [Table("LetterHeader", Schema = "data")]
+    internal partial class LetterHeader : MUnique.OpenMU.Interfaces.LetterHeader, IIdentifiable
+    {        
+
+        protected void InitJoinCollections()
+        {
+        }
+        
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            var baseObject = obj as IIdentifiable;
+            if (baseObject != null)
+            {
+                return baseObject.Id == this.Id;
+            }
+
+            return base.Equals(obj);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return this.Id.GetHashCode();
+        }
+    }
+
+    /// <summary>
+    /// The Entity Framework Core implementation of <see cref="MUnique.OpenMU.Interfaces.Friend"/>.
+    /// </summary>
+    [Table("Friend", Schema = "data")]
+    internal partial class Friend : MUnique.OpenMU.Interfaces.Friend, IIdentifiable
+    {        
+
+        protected void InitJoinCollections()
+        {
+        }
+        
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            var baseObject = obj as IIdentifiable;
+            if (baseObject != null)
+            {
+                return baseObject.Id == this.Id;
+            }
+
+            return base.Equals(obj);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return this.Id.GetHashCode();
+        }
+    }
+
+    /// <summary>
     /// DbContext which sets all extended base types to ignore.
     /// </summary>
     public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
@@ -4430,18 +4438,16 @@ public ICollection<AttributeRelationship> RawRelatedValues { get; set; } = new L
         /// <inheritdoc/>
         protected override void OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder)
         {
+            modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Guild>();
+            modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.GuildMember>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.ItemOptionLink>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Account>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Character>();
-            modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.FriendViewItem>();
-            modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Guild>();
-            modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.GuildMemberInfo>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AppearanceData>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Item>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.ItemAppearance>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.ItemStorage>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.LetterBody>();
-            modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.LetterHeader>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.SkillEntry>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.EnterGate>();
             modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ExitGate>();
@@ -4491,6 +4497,8 @@ public ICollection<AttributeRelationship> RawRelatedValues { get; set; } = new L
             modelBuilder.Ignore<MUnique.OpenMU.AttributeSystem.AttributeRelationship>();
             modelBuilder.Ignore<MUnique.OpenMU.AttributeSystem.SimpleElement>();
             modelBuilder.Ignore<MUnique.OpenMU.AttributeSystem.AttributeRelationshipElement>();
+            modelBuilder.Ignore<MUnique.OpenMU.Interfaces.LetterHeader>();
+            modelBuilder.Ignore<MUnique.OpenMU.Interfaces.Friend>();
         }
 
         /// <summary>
@@ -4499,31 +4507,35 @@ public ICollection<AttributeRelationship> RawRelatedValues { get; set; } = new L
         /// <param name="modelBuilder">The model builder.</param>
         protected void AddJoinDefinitions(Microsoft.EntityFrameworkCore.ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Account>().HasMany(entity => entity.JoinedCharacterClasss).WithOne(join => join.Account);
+            modelBuilder.Entity<Account>().HasMany(entity => entity.JoinedUnlockedCharacterClasses).WithOne(join => join.Account);
             modelBuilder.Entity<AccountCharacterClass>().HasKey(join => new { join.AccountId, join.CharacterClassId });
             modelBuilder.Entity<Character>().HasMany(entity => entity.JoinedDropItemGroups).WithOne(join => join.Character);
             modelBuilder.Entity<CharacterDropItemGroup>().HasKey(join => new { join.CharacterId, join.DropItemGroupId });
             modelBuilder.Entity<Item>().HasMany(entity => entity.JoinedItemSetGroups).WithOne(join => join.Item);
             modelBuilder.Entity<ItemItemSetGroup>().HasKey(join => new { join.ItemId, join.ItemSetGroupId });
-            modelBuilder.Entity<DropItemGroup>().HasMany(entity => entity.JoinedItemDefinitions).WithOne(join => join.DropItemGroup);
+            modelBuilder.Entity<ItemAppearance>().HasMany(entity => entity.JoinedVisibleOptions).WithOne(join => join.ItemAppearance);
+            modelBuilder.Entity<ItemAppearanceItemOptionType>().HasKey(join => new { join.ItemAppearanceId, join.ItemOptionTypeId });
+            modelBuilder.Entity<GameServerConfiguration>().HasMany(entity => entity.JoinedMaps).WithOne(join => join.GameServerConfiguration);
+            modelBuilder.Entity<GameServerConfigurationGameMapDefinition>().HasKey(join => new { join.GameServerConfigurationId, join.GameMapDefinitionId });
+            modelBuilder.Entity<DropItemGroup>().HasMany(entity => entity.JoinedPossibleItems).WithOne(join => join.DropItemGroup);
             modelBuilder.Entity<DropItemGroupItemDefinition>().HasKey(join => new { join.DropItemGroupId, join.ItemDefinitionId });
-            modelBuilder.Entity<MasterSkillDefinition>().HasMany(entity => entity.JoinedSkills).WithOne(join => join.MasterSkillDefinition);
+            modelBuilder.Entity<MasterSkillDefinition>().HasMany(entity => entity.JoinedRequiredMasterSkills).WithOne(join => join.MasterSkillDefinition);
             modelBuilder.Entity<MasterSkillDefinitionSkill>().HasKey(join => new { join.MasterSkillDefinitionId, join.SkillId });
             modelBuilder.Entity<MonsterDefinition>().HasMany(entity => entity.JoinedDropItemGroups).WithOne(join => join.MonsterDefinition);
             modelBuilder.Entity<MonsterDefinitionDropItemGroup>().HasKey(join => new { join.MonsterDefinitionId, join.DropItemGroupId });
             modelBuilder.Entity<GameMapDefinition>().HasMany(entity => entity.JoinedDropItemGroups).WithOne(join => join.GameMapDefinition);
             modelBuilder.Entity<GameMapDefinitionDropItemGroup>().HasKey(join => new { join.GameMapDefinitionId, join.DropItemGroupId });
-            modelBuilder.Entity<Skill>().HasMany(entity => entity.JoinedCharacterClasss).WithOne(join => join.Skill);
+            modelBuilder.Entity<Skill>().HasMany(entity => entity.JoinedQualifiedCharacters).WithOne(join => join.Skill);
             modelBuilder.Entity<SkillCharacterClass>().HasKey(join => new { join.SkillId, join.CharacterClassId });
-            modelBuilder.Entity<Skill>().HasMany(entity => entity.JoinedMasterSkillDefinitions).WithOne(join => join.Skill);
+            modelBuilder.Entity<Skill>().HasMany(entity => entity.JoinedMasterDefinitions).WithOne(join => join.Skill);
             modelBuilder.Entity<SkillMasterSkillDefinition>().HasKey(join => new { join.SkillId, join.MasterSkillDefinitionId });
-            modelBuilder.Entity<ItemDefinition>().HasMany(entity => entity.JoinedCharacterClasss).WithOne(join => join.ItemDefinition);
+            modelBuilder.Entity<ItemDefinition>().HasMany(entity => entity.JoinedQualifiedCharacters).WithOne(join => join.ItemDefinition);
             modelBuilder.Entity<ItemDefinitionCharacterClass>().HasKey(join => new { join.ItemDefinitionId, join.CharacterClassId });
-            modelBuilder.Entity<ItemDefinition>().HasMany(entity => entity.JoinedItemSetGroups).WithOne(join => join.ItemDefinition);
+            modelBuilder.Entity<ItemDefinition>().HasMany(entity => entity.JoinedPossibleItemSetGroups).WithOne(join => join.ItemDefinition);
             modelBuilder.Entity<ItemDefinitionItemSetGroup>().HasKey(join => new { join.ItemDefinitionId, join.ItemSetGroupId });
-            modelBuilder.Entity<ItemSetGroup>().HasMany(entity => entity.JoinedItemOptions).WithOne(join => join.ItemSetGroup);
+            modelBuilder.Entity<ItemSetGroup>().HasMany(entity => entity.JoinedOptions).WithOne(join => join.ItemSetGroup);
             modelBuilder.Entity<ItemSetGroupItemOption>().HasKey(join => new { join.ItemSetGroupId, join.ItemOptionId });
-            modelBuilder.Entity<ItemCraftingRequiredItem>().HasMany(entity => entity.JoinedItemOptionTypes).WithOne(join => join.ItemCraftingRequiredItem);
+            modelBuilder.Entity<ItemCraftingRequiredItem>().HasMany(entity => entity.JoinedRequiredItemOptions).WithOne(join => join.ItemCraftingRequiredItem);
             modelBuilder.Entity<ItemCraftingRequiredItemItemOptionType>().HasKey(join => new { join.ItemCraftingRequiredItemId, join.ItemOptionTypeId });
         }
     }

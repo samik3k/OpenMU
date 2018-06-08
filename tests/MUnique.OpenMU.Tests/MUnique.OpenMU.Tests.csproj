@@ -11,7 +11,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MUnique.OpenMU.Tests</RootNamespace>
     <AssemblyName>MUnique.OpenMU.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
@@ -78,6 +78,7 @@
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="AppearanceSerializerTest.cs" />
+    <Compile Include="CharacterMoveTest.cs" />
     <Compile Include="ConfigurablePacketHandlerTest.cs" />
     <Compile Include="DropGeneratorTest.cs" />
     <Compile Include="FriendServerTest.cs" />
@@ -128,6 +129,14 @@
       <Project>{CB8A2C80-8ECD-44D6-98B7-AB35891B66FD}</Project>
       <Name>MUnique.OpenMU.Interfaces</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\Pathfinding\MUnique.OpenMU.Pathfinding.csproj">
+      <Project>{44CD0416-61D6-4848-8864-5DE7B971604A}</Project>
+      <Name>MUnique.OpenMU.Pathfinding</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\Persistence\InMemory\MUnique.OpenMU.Persistence.InMemory.csproj">
+      <Project>{23b216a0-b407-4a76-a387-0b9e72b15363}</Project>
+      <Name>MUnique.OpenMU.Persistence.InMemory</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\Persistence\MUnique.OpenMU.Persistence.csproj">
       <Project>{6E809FA9-888C-474F-8A84-70EECBC7E42D}</Project>
       <Name>MUnique.OpenMU.Persistence</Name>
@@ -142,9 +151,8 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Analyzer Include="..\..\src\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\Newtonsoft.Json.dll" />
-    <Analyzer Include="..\..\src\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
-    <Analyzer Include="..\..\src\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
+    <Analyzer Include="..\..\src\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
+    <Analyzer Include="..\..\src\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

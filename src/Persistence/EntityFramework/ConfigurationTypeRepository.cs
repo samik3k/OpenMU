@@ -10,14 +10,16 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
     using System.IO;
     using System.Linq;
 
+    using MUnique.OpenMU.Persistence.EntityFramework.Json;
+
     /// <summary>
     /// A repository which gets its data from the <see cref="EntityDataContext.CurrentGameConfiguration"/>, without additionally touching the database.
     /// </summary>
     /// <typeparam name="T">The data object type.</typeparam>
-    internal class ConfigurationTypeRepository<T> : IRepository<T>
+    internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTypeRepository
         where T : class
     {
-        private readonly IRepositoryManager repositoryManager;
+        private readonly PersistenceContextProvider persistenceContextProvider;
 
         private readonly Func<GameConfiguration, ICollection<T>> collectionSelector;
 
@@ -31,18 +33,18 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         /// <summary>
         /// Initializes a new instance of the <see cref="ConfigurationTypeRepository{T}"/> class.
         /// </summary>
-        /// <param name="repositoryManager">The repository manager.</param>
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
         /// <param name="collectionSelector">The collection selector which returns the collection of <typeparamref name="T"/> of a <see cref="GameConfiguration"/>.</param>
-        public ConfigurationTypeRepository(IRepositoryManager repositoryManager, Func<GameConfiguration, ICollection<T>> collectionSelector)
+        public ConfigurationTypeRepository(PersistenceContextProvider persistenceContextProvider, Func<GameConfiguration, ICollection<T>> collectionSelector)
         {
-            this.repositoryManager = repositoryManager;
+            this.persistenceContextProvider = persistenceContextProvider;
             this.collectionSelector = collectionSelector;
         }
 
         /// <summary>
         /// Gets the repository manager of this repository.
         /// </summary>
-        protected IRepositoryManager RepositoryManager => this.repositoryManager;
+        protected PersistenceContextProvider PersistenceContextProvider => this.persistenceContextProvider;
 
         /// <summary>
         /// Gets all objects by using the <see cref="collectionSelector"/> to the current <see cref="GameConfiguration"/>.
@@ -92,7 +94,10 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             return this.GetById(id);
         }
 
-        private void EnsureCacheForCurrentConfiguration()
+        /// <summary>
+        /// Ensures the cache for the current configuration.
+        /// </summary>
+        public void EnsureCacheForCurrentConfiguration()
         {
             var configuration = this.GetCurrentGameConfiguration();
             if (this.cache.ContainsKey(configuration))
@@ -111,12 +116,16 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
                     .Where(item => item is IIdentifiable)
                     .ToDictionary(item => ((IIdentifiable)item).Id, item => item);
                 this.cache.Add(configuration, dictionary);
+                foreach (var item in dictionary.Values)
+                {
+                    ConfigurationIdReferenceResolver.Instance.AddReference((IIdentifiable)item);
+                }
             }
         }
 
         private GameConfiguration GetCurrentGameConfiguration()
         {
-            var context = (this.repositoryManager.GetCurrentContext() as EntityFrameworkContext)?.Context as EntityDataContext;
+            var context = (this.persistenceContextProvider.GetCurrentContext() as EntityFrameworkContext)?.Context as EntityDataContext;
             if (context == null)
             {
                 throw new InvalidOperationException("This repository can only be used within an account context.");

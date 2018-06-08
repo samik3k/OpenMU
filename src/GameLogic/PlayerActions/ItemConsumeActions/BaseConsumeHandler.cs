@@ -30,6 +30,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
                 if (item.Durability == 0)
                 {
                     player.Inventory.RemoveItem(item);
+                    player.PersistenceContext.Delete(item);
                 }
 
                 return true;

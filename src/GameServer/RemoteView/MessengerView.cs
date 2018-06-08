@@ -48,42 +48,48 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         {
             var letters = this.player.SelectedCharacter.Letters;
             var friends = this.friendServer.GetFriendList(this.player.SelectedCharacter.Id);
-            var friendList = friends as ICollection<FriendViewItem> ?? friends.ToList();
+            var friendList = friends as ICollection<string> ?? friends.ToList();
 
             var letterCount = (byte)letters.Count;
             if (friendList.Count == 0)
             {
                 this.connection.Send(new byte[] { 0xC2, 0, 7, 0xC0, letterCount, (byte)maxLetters, 0 });
-                return;
             }
-
-            var friendListCount = (byte)friendList.Count;
-            const byte sizePerFriend = 11;
-            ////C2 00 06 C0 06 32
-            var packetLength = (ushort)(7 + (sizePerFriend * friendListCount));
-            var packet = new byte[packetLength];
-            packet[0] = 0xC2;
-            packet[1] = packetLength.GetHighByte();
-            packet[2] = packetLength.GetLowByte();
-            packet[3] = 0xC0;
-            packet[4] = letterCount;
-            packet[5] = (byte)maxLetters;
-            packet[6] = friendListCount;
-
-            int i = 0;
-            foreach (var friend in friendList)
+            else
             {
-                var offset = 7 + (i * sizePerFriend);
-                Encoding.ASCII.GetBytes(friend.FriendName, 0, friend.FriendName.Length, packet, offset);
-                packet[offset + sizePerFriend - 1] = 0xFF;
-                i++;
-            }
+                var friendListCount = (byte)friendList.Count;
+                const byte sizePerFriend = 11;
+                ////C2 00 06 C0 06 32
+                var packetLength = (ushort)(7 + (sizePerFriend * friendListCount));
+                var packet = new byte[packetLength];
+                packet[0] = 0xC2;
+                packet[1] = packetLength.GetHighByte();
+                packet[2] = packetLength.GetLowByte();
+                packet[3] = 0xC0;
+                packet[4] = letterCount;
+                packet[5] = (byte)maxLetters;
+                packet[6] = friendListCount;
 
-            this.connection.Send(packet);
+                int i = 0;
+                foreach (var friend in friendList)
+                {
+                    var offset = 7 + (i * sizePerFriend);
+                    Encoding.ASCII.GetBytes(friend, 0, friend.Length, packet, offset);
+                    packet[offset + sizePerFriend - 1] = 0xFF;
+                    i++;
+                }
+
+                this.connection.Send(packet);
+            }
 
             foreach (var requesterName in this.friendServer.GetOpenFriendRequests(this.player.SelectedCharacter.Id))
             {
                 this.ShowFriendRequest(requesterName);
+            }
+
+            for (ushort l = 0; l < letters.Count; l++)
+            {
+                this.AddToLetterList(letters[l], l, false);
             }
         }
 
@@ -166,6 +172,19 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         }
 
         /// <inheritdoc/>
+        public void ShowFriendInvitationResult(bool success, uint requestId)
+        {
+            var packet = new byte[]
+            {
+                0xC3, 8, 0xCB,
+                success ? (byte)1 : (byte)0,
+                0, 0, 0, 0
+            };
+            packet.SetIntegerSmallEndian(requestId, 4);
+            this.connection.Send(packet);
+        }
+
+        /// <inheritdoc/>
         public void ShowLetter(LetterBody letter)
         {
             var letterIndex = this.player.SelectedCharacter.Letters.IndexOf(letter.Header);
@@ -195,10 +214,11 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         }
 
         /// <inheritdoc/>
-        public void LetterSendResult(LetterSendSuccess success)
+        public void LetterSendResult(LetterSendSuccess success, uint letterId)
         {
-            byte length = 1; // TODO
-            this.connection.Send(new byte[] { 0xC1, 8, 0xC5, (byte)success, length, 0, 0, 0 });
+            var packet = new byte[] { 0xC1, 8, 0xC5, (byte)success, 0, 0, 0, 0 };
+            packet.SetIntegerBigEndian(letterId, 4);
+            this.connection.Send(packet);
         }
     }
 }

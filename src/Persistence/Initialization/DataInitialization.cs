@@ -31,16 +31,17 @@ namespace MUnique.OpenMU.Persistence.Initialization
     /// </summary>
     public class DataInitialization
     {
-        private readonly IRepositoryManager repositoryManager;
+        private readonly IPersistenceContextProvider persistenceContextProvider;
         private GameConfiguration gameConfiguration;
+        private IContext context;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataInitialization"/> class.
         /// </summary>
-        /// <param name="repositoryManager">The repository manager.</param>
-        public DataInitialization(IRepositoryManager repositoryManager)
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
+        public DataInitialization(IPersistenceContextProvider persistenceContextProvider)
         {
-            this.repositoryManager = repositoryManager;
+            this.persistenceContextProvider = persistenceContextProvider;
         }
 
         /// <summary>
@@ -48,28 +49,28 @@ namespace MUnique.OpenMU.Persistence.Initialization
         /// </summary>
         public void CreateInitialData()
         {
-            using (this.repositoryManager.UseTemporaryContext())
+            using (var temporaryContext = this.persistenceContextProvider.CreateNewContext())
             {
-                this.gameConfiguration = this.repositoryManager.CreateNew<GameConfiguration>();
+                this.gameConfiguration = temporaryContext.CreateNew<GameConfiguration>();
             }
 
-            using (var context = this.repositoryManager.UseTemporaryContext(this.gameConfiguration))
+            using (this.context = this.persistenceContextProvider.CreateNewContext(this.gameConfiguration))
             {
                 this.InitializeGameConfiguration();
                 var gameServerConfiguration = this.CreateGameServerConfiguration(this.gameConfiguration.Maps);
                 this.CreateGameServerDefinitions(gameServerConfiguration, 3);
-                context.SaveChanges();
+                this.context.SaveChanges();
 
-                var safezone = this.gameConfiguration.Maps.First(map => map.Number == 0).SpawnGates.First(gate => gate.X1 == 133 && gate.X2 == 151);
+                var lorencia = this.gameConfiguration.Maps.First(map => map.Number == 0);
                 foreach (var map in this.gameConfiguration.Maps)
                 {
                     // set safezone to lorencia for now...
-                    map.DeathSafezone = safezone;
+                    map.SafezoneMap = lorencia;
                 }
 
                 this.CreateTestAccounts(10);
 
-                context.SaveChanges();
+                this.context.SaveChanges();
             }
         }
 
@@ -81,16 +82,37 @@ namespace MUnique.OpenMU.Persistence.Initialization
             }
         }
 
+        private long CalcNeededMasterExp(long lvl)
+        {
+            // f(x) = 505 * x^3 + 35278500 * x + 228045 * x^2
+            return (505 * lvl * lvl * lvl) + (35278500 * lvl) + (228045 * lvl * lvl);
+        }
+
+        private long CalculateNeededExperience(long level)
+        {
+            if (level == 0)
+            {
+                return 0;
+            }
+
+            if (level < 256)
+            {
+                return 10 * (level + 8) * (level - 1) * (level - 1);
+            }
+
+            return (10 * (level + 8) * (level - 1) * (level - 1)) + (1000 * (level - 247) * (level - 256) * (level - 256));
+        }
+
         private void CreateTestAccount(int index)
         {
             var loginName = "test" + index.ToString();
 
-            var account = this.repositoryManager.CreateNew<Account>();
+            var account = this.context.CreateNew<Account>();
             account.LoginName = loginName;
             account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(loginName);
-            account.Vault = this.repositoryManager.CreateNew<ItemStorage>();
+            account.Vault = this.context.CreateNew<ItemStorage>();
 
-            var character = this.repositoryManager.CreateNew<Character>();
+            var character = this.context.CreateNew<Character>();
             account.Characters.Add(character);
             character.CharacterClass = this.gameConfiguration.CharacterClasses.First(c => c.Number == (byte)CharacterClassNumber.DarkKnight);
             character.Name = loginName;
@@ -100,16 +122,20 @@ namespace MUnique.OpenMU.Persistence.Initialization
             foreach (
                 var attribute in
                 character.CharacterClass.StatAttributes.Select(
-                    a => this.repositoryManager.CreateNew<StatAttribute>(a.Attribute, a.BaseValue)))
+                    a => this.context.CreateNew<StatAttribute>(a.Attribute, a.BaseValue)))
             {
                 character.Attributes.Add(attribute);
             }
 
             character.CurrentMap = character.CharacterClass.HomeMap;
-            character.PositionX = (byte)Rand.NextInt(character.CurrentMap.DeathSafezone.X1, character.CurrentMap.DeathSafezone.X2);
-            character.PositionY = (byte)Rand.NextInt(character.CurrentMap.DeathSafezone.Y1, character.CurrentMap.DeathSafezone.Y2);
-            character.Attributes.First(a => a.Definition == Stats.Level).Value = (index * 10) + 1;
-            character.Inventory = this.repositoryManager.CreateNew<ItemStorage>();
+            var spawnGate = character.CurrentMap.ExitGates.Where(m => m.IsSpawnGate).SelectRandom();
+            character.PositionX = (byte)Rand.NextInt(spawnGate.X1, spawnGate.X2);
+            character.PositionY = (byte)Rand.NextInt(spawnGate.Y1, spawnGate.Y2);
+            var level = (index * 10) + 1;
+            character.Attributes.First(a => a.Definition == Stats.Level).Value = level;
+            character.Experience = this.CalculateNeededExperience(level);
+            character.LevelUpPoints = (int)(character.Attributes.First(a => a.Definition == Stats.Level).Value - 1) * character.CharacterClass.PointsPerLevelUp;
+            character.Inventory = this.context.CreateNew<ItemStorage>();
             character.Inventory.Money = 1000000;
             character.Inventory.Items.Add(this.CreateSmallAxe(0));
             character.Inventory.Items.Add(this.CreateJewelOfBless(12));
@@ -147,11 +173,25 @@ namespace MUnique.OpenMU.Persistence.Initialization
             character.Inventory.Items.Add(this.CreateShieldPotion(44, 0));
             character.Inventory.Items.Add(this.CreateShieldPotion(45, 1));
             character.Inventory.Items.Add(this.CreateShieldPotion(46, 2));
+            character.Inventory.Items.Add(this.CreateSetItem(52, 5, 8)); // Leather armor
+            character.Inventory.Items.Add(this.CreateSetItem(47, 5, 7)); // Leather helm
+            character.Inventory.Items.Add(this.CreateSetItem(49, 5, 9)); // Leather pants
+            character.Inventory.Items.Add(this.CreateSetItem(63, 5, 10)); // Leather gloves
+            character.Inventory.Items.Add(this.CreateSetItem(65, 5, 11)); // Leather boots
+        }
+
+        private Item CreateSetItem(byte itemSlot, byte setNumber, byte group)
+        {
+            var item = this.context.CreateNew<Item>();
+            item.Definition = this.gameConfiguration.Items.First(def => def.Group == group && def.Number == setNumber);
+            item.Durability = item.Definition.Durability;
+            item.ItemSlot = itemSlot;
+            return item;
         }
 
         private Item CreateAlcohol(byte itemSlot)
         {
-            var potion = this.repositoryManager.CreateNew<Item>();
+            var potion = this.context.CreateNew<Item>();
             potion.Definition = this.gameConfiguration.Items.FirstOrDefault(def => def.Group == 14 && def.Number == 9);
             potion.Durability = 1;
             potion.ItemSlot = itemSlot;
@@ -175,7 +215,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private Item CreatePotion(byte itemSlot, byte itemNumber)
         {
-            var potion = this.repositoryManager.CreateNew<Item>();
+            var potion = this.context.CreateNew<Item>();
             potion.Definition = this.gameConfiguration.Items.FirstOrDefault(def => def.Group == 14 && def.Number == itemNumber);
             potion.Durability = 3; // Stack of 3 Potions
             potion.ItemSlot = itemSlot;
@@ -199,7 +239,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private Item CreateJewel(byte itemSlot, byte itemNumber)
         {
-            var jewel = this.repositoryManager.CreateNew<Item>();
+            var jewel = this.context.CreateNew<Item>();
             jewel.Definition = this.gameConfiguration.Items.FirstOrDefault(def => def.Group == 14 && def.Number == itemNumber);
             jewel.Durability = 1;
             jewel.ItemSlot = itemSlot;
@@ -208,7 +248,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private Item CreateSmallAxe(byte itemSlot)
         {
-            var smallAxe = this.repositoryManager.CreateNew<Item>();
+            var smallAxe = this.context.CreateNew<Item>();
             smallAxe.Definition = this.gameConfiguration.Items.FirstOrDefault(def => def.Group == 1 && def.Number == 0); // small axe
             smallAxe.Durability = smallAxe.Definition?.Durability ?? 0;
             smallAxe.ItemSlot = itemSlot;
@@ -217,190 +257,34 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private void CreateNpcs()
         {
-            var init = new NpcInitialization(this.repositoryManager, this.gameConfiguration);
+            var init = new NpcInitialization(this.context, this.gameConfiguration);
             init.CreateNpcs();
         }
 
         private PacketHandlerConfiguration CreatePacketConfig<THandler>(PacketType packetType, bool needsEncryption = false)
             where THandler : IPacketHandler
         {
-            var config = this.repositoryManager.CreateNew<PacketHandlerConfiguration>();
+            var config = this.context.CreateNew<PacketHandlerConfiguration>();
             config.PacketIdentifier = (byte)packetType;
             config.PacketHandlerClassName = typeof(THandler).AssemblyQualifiedName;
             config.NeedsToBeEncrypted = needsEncryption;
             return config;
         }
 
-        /*
-        private void CreateExcellentWeaponOptions()
-        {
-            var mana8 = new ItemOption
-            {
-                Number = 1,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new List<AttributeRelationship> { new AttributeRelationship { InputAttribute = Stats.MaximumMana, InputOperand = 1.0f / 8.0f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.ManaAfterMonsterKill
-                }
-            };
-
-            var life8 = new ItemOption
-            {
-                Number = 2,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.MaximumHealth, InputOperand = 1.0f / 8.0f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.HealthAfterMonsterKill
-                }
-            };
-
-            var speed = new ItemOption
-            {
-                Number = 3,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        ConstantValue = new SimpleElement { Value = 7, AggregateType = AggregateType.AddRaw }
-                    },
-                    TargetAttribute = Stats.AttackSpeed
-                }
-            };
-
-            var dmg2percentPhys = new ItemOption
-            {
-                Number = 4,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.MaximumPhysBaseDmg, InputOperand = 1.02f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.MaximumPhysBaseDmg // hopefully we get no endless loop...
-                }
-            };
-
-            var dmg2percentWiz = new ItemOption
-            {
-                Number = 4,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.MaximumWizBaseDmg, InputOperand = 1.02f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.MaximumWizBaseDmg
-                }
-            };
-
-            var dmg2percentCurse = new ItemOption
-            {
-                Number = 4,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.MaximumCurseBaseDmg, InputOperand = 1.02f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.MaximumCurseBaseDmg
-                }
-            };
-
-            var dmglvl20Phys = new ItemOption
-            {
-                Number = 5,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.Level, InputOperand = 1f / 20f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.MaximumPhysBaseDmg
-                }
-            };
-
-            var dmglvl20Wiz = new ItemOption
-            {
-                Number = 5,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.Level, InputOperand = 1f / 20f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.MaximumWizBaseDmg
-                }
-            };
-
-            var dmglvl20Curse = new ItemOption
-            {
-                Number = 5,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        RelatedValues = new[] { new AttributeRelationship { InputAttribute = Stats.Level, InputOperand = 1f / 20f, InputOperator = InputOperator.Multiply } }
-                    },
-                    TargetAttribute = Stats.MaximumCurseBaseDmg
-                }
-            };
-
-            var excellentDmgChance = new ItemOption
-            {
-                Number = 6,
-                OptionType = ItemOptionTypes.Excellent,
-                PowerUpDefinition = new PowerUpDefinition
-                {
-                    Boost = new PowerUpDefinitionValue
-                    {
-                        ConstantValue = new SimpleElement { Value = 0.1f, AggregateType = AggregateType.AddRaw }
-                    },
-                    TargetAttribute = Stats.ExcellentDamageChance
-                }
-            };
-
-            var repository = this.repositoryManager.GetRepository<ItemOption>();
-            repository.Store(mana8);
-            repository.Store(life8);
-            repository.Store(speed);
-            repository.Store(dmg2percentCurse);
-            repository.Store(dmg2percentPhys);
-            repository.Store(dmg2percentWiz);
-            repository.Store(dmglvl20Curse);
-            repository.Store(dmglvl20Phys);
-            repository.Store(dmglvl20Wiz);
-            repository.Store(excellentDmgChance);
-        }*/
-
         private ItemOptionDefinition CreateLuckOptionDefinition()
         {
-            var definition = this.repositoryManager.CreateNew<ItemOptionDefinition>();
+            var definition = this.context.CreateNew<ItemOptionDefinition>();
 
             definition.Name = "Luck";
             definition.AddChance = 0.25f;
             definition.AddsRandomly = true;
             definition.MaximumOptionsPerItem = 1;
 
-            var itemOption = this.repositoryManager.CreateNew<IncreasableItemOption>();
+            var itemOption = this.context.CreateNew<IncreasableItemOption>();
             itemOption.OptionType = this.gameConfiguration.ItemOptionTypes.FirstOrDefault(o => o == ItemOptionTypes.Luck);
-            itemOption.PowerUpDefinition = this.repositoryManager.CreateNew<PowerUpDefinition>();
+            itemOption.PowerUpDefinition = this.context.CreateNew<PowerUpDefinition>();
             itemOption.PowerUpDefinition.TargetAttribute = this.gameConfiguration.Attributes.FirstOrDefault(a => a == Stats.CriticalDamageChance);
-            itemOption.PowerUpDefinition.Boost = this.repositoryManager.CreateNew<PowerUpDefinitionValue>();
+            itemOption.PowerUpDefinition.Boost = this.context.CreateNew<PowerUpDefinitionValue>();
             itemOption.PowerUpDefinition.Boost.ConstantValue.Value = 0.05f;
             definition.PossibleOptions.Add(itemOption);
 
@@ -409,19 +293,31 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private ItemOptionDefinition CreateOptionDefinition(AttributeDefinition attributeDefinition)
         {
-            var definition = this.repositoryManager.CreateNew<ItemOptionDefinition>();
+            var definition = this.context.CreateNew<ItemOptionDefinition>();
 
             definition.Name = "Option";
             definition.AddChance = 0.25f;
             definition.AddsRandomly = true;
-            definition.MaximumOptionsPerItem = 4;
+            definition.MaximumOptionsPerItem = 1;
 
-            var itemOption = this.repositoryManager.CreateNew<IncreasableItemOption>();
+            var itemOption = this.context.CreateNew<IncreasableItemOption>();
             itemOption.OptionType = this.gameConfiguration.ItemOptionTypes.FirstOrDefault(o => o == ItemOptionTypes.Option);
-            itemOption.PowerUpDefinition = this.repositoryManager.CreateNew<PowerUpDefinition>();
+            itemOption.PowerUpDefinition = this.context.CreateNew<PowerUpDefinition>();
             itemOption.PowerUpDefinition.TargetAttribute = this.gameConfiguration.Attributes.First(a => a == attributeDefinition);
-            itemOption.PowerUpDefinition.Boost = this.repositoryManager.CreateNew<PowerUpDefinitionValue>();
+            itemOption.PowerUpDefinition.Boost = this.context.CreateNew<PowerUpDefinitionValue>();
             itemOption.PowerUpDefinition.Boost.ConstantValue.Value = 4;
+            for (int level = 2; level <= 4; level++)
+            {
+                var levelDependentOption = this.context.CreateNew<ItemOptionOfLevel>();
+                levelDependentOption.Level = level;
+                var powerUpDefinition = this.context.CreateNew<PowerUpDefinition>();
+                powerUpDefinition.TargetAttribute = itemOption.PowerUpDefinition.TargetAttribute;
+                powerUpDefinition.Boost = this.context.CreateNew<PowerUpDefinitionValue>();
+                powerUpDefinition.Boost.ConstantValue.Value = level * 4;
+                levelDependentOption.PowerUpDefinition = powerUpDefinition;
+                itemOption.LevelDependentOptions.Add(levelDependentOption);
+            }
+
             definition.PossibleOptions.Add(itemOption);
 
             return definition;
@@ -438,7 +334,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
             foreach (var optionType in optionTypes)
             {
-                var persistentOptionType = this.repositoryManager.CreateNew<ItemOptionType>();
+                var persistentOptionType = this.context.CreateNew<ItemOptionType>();
                 persistentOptionType.Description = optionType.Description;
                 persistentOptionType.Id = optionType.Id;
                 persistentOptionType.Name = optionType.Name;
@@ -460,64 +356,64 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
             foreach (var attribute in attributes)
             {
-                var persistentAttribute = this.repositoryManager.CreateNew<AttributeDefinition>(attribute.Id, attribute.Designation, attribute.Description);
+                var persistentAttribute = this.context.CreateNew<AttributeDefinition>(attribute.Id, attribute.Designation, attribute.Description);
                 this.gameConfiguration.Attributes.Add(persistentAttribute);
             }
         }
 
         private void CreateItemSlotTypes()
         {
-            var leftHand = this.repositoryManager.CreateNew<ItemSlotType>();
+            var leftHand = this.context.CreateNew<ItemSlotType>();
             leftHand.Description = "Left Hand";
             leftHand.ItemSlots.Add(0);
             this.gameConfiguration.ItemSlotTypes.Add(leftHand);
 
-            var rightHand = this.repositoryManager.CreateNew<ItemSlotType>();
+            var rightHand = this.context.CreateNew<ItemSlotType>();
             rightHand.Description = "Right Hand";
             rightHand.ItemSlots.Add(1);
             this.gameConfiguration.ItemSlotTypes.Add(rightHand);
 
-            var helm = this.repositoryManager.CreateNew<ItemSlotType>();
+            var helm = this.context.CreateNew<ItemSlotType>();
             helm.Description = "Helm";
             helm.ItemSlots.Add(2);
             this.gameConfiguration.ItemSlotTypes.Add(helm);
 
-            var armor = this.repositoryManager.CreateNew<ItemSlotType>();
+            var armor = this.context.CreateNew<ItemSlotType>();
             armor.Description = "Armor";
             armor.ItemSlots.Add(3);
             this.gameConfiguration.ItemSlotTypes.Add(armor);
 
-            var pants = this.repositoryManager.CreateNew<ItemSlotType>();
+            var pants = this.context.CreateNew<ItemSlotType>();
             pants.Description = "Pants";
             pants.ItemSlots.Add(4);
             this.gameConfiguration.ItemSlotTypes.Add(pants);
 
-            var gloves = this.repositoryManager.CreateNew<ItemSlotType>();
+            var gloves = this.context.CreateNew<ItemSlotType>();
             gloves.Description = "Gloves";
             gloves.ItemSlots.Add(5);
             this.gameConfiguration.ItemSlotTypes.Add(gloves);
 
-            var boots = this.repositoryManager.CreateNew<ItemSlotType>();
+            var boots = this.context.CreateNew<ItemSlotType>();
             boots.Description = "Boots";
             boots.ItemSlots.Add(6);
             this.gameConfiguration.ItemSlotTypes.Add(boots);
 
-            var wings = this.repositoryManager.CreateNew<ItemSlotType>();
+            var wings = this.context.CreateNew<ItemSlotType>();
             wings.Description = "Wings";
             wings.ItemSlots.Add(7);
             this.gameConfiguration.ItemSlotTypes.Add(wings);
 
-            var pet = this.repositoryManager.CreateNew<ItemSlotType>();
+            var pet = this.context.CreateNew<ItemSlotType>();
             pet.Description = "Pet";
             pet.ItemSlots.Add(8);
             this.gameConfiguration.ItemSlotTypes.Add(pet);
 
-            var pendant = this.repositoryManager.CreateNew<ItemSlotType>();
+            var pendant = this.context.CreateNew<ItemSlotType>();
             pendant.Description = "Pendant";
             pendant.ItemSlots.Add(9);
             this.gameConfiguration.ItemSlotTypes.Add(pendant);
 
-            var ring = this.repositoryManager.CreateNew<ItemSlotType>();
+            var ring = this.context.CreateNew<ItemSlotType>();
             ring.Description = "Ring";
             ring.ItemSlots.Add(10);
             ring.ItemSlots.Add(11);
@@ -528,7 +424,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
         {
             for (int i = 0; i < numberOfServers; i++)
             {
-                var server = this.repositoryManager.CreateNew<GameServerDefinition>();
+                var server = this.context.CreateNew<GameServerDefinition>();
                 server.ServerID = (byte)i;
                 server.Description = $"Server {i}";
                 server.NetworkPort = 55901 + i;
@@ -539,10 +435,19 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private void CreateGameMapDefinitions()
         {
-            var lorencia = new Lorencia();
-            this.gameConfiguration.Maps.Add(lorencia.Initialize(this.repositoryManager, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Lorencia().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Dungeon().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Devias().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Noria().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new LostTower().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Exile().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Arena().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Atlans().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Tarkan().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new DevilSquare1To4().Initialize(this.context, this.gameConfiguration));
+            this.gameConfiguration.Maps.Add(new Icarus().Initialize(this.context, this.gameConfiguration));
 
-            string[] mapNames =
+            var mapNames = new List<string>
             {
                 "Lorencia", "Dungeon", "Devias", "Noria", "Lost_Tower", "Exile", "Arena", "Atlans", "Tarkan", "Devil_Square (1-4)", "Icarus", // 10
                 "Blood_Castle 1", "Blood_Castle 2", "Blood_Castle 3", "Blood_Castle 4", "Blood_Castle 5", "Blood_Castle 6", "Blood_Castle 7", "Chaos_Castle 1", "Chaos_Castle 2", "Chaos_Castle 3", // 20
@@ -555,15 +460,17 @@ namespace MUnique.OpenMU.Persistence.Initialization
                 "Karutan1", "Karutan2"
             };
 
-            var skipCount = 1;
+            var skipCount = this.gameConfiguration.Maps.Count;
             mapNames.Skip(skipCount).Select((mapName, i) =>
                 {
-                    var map = this.repositoryManager.CreateNew<GameMapDefinition>();
-
-                    map.Name = mapNames[i + skipCount];
+                    var map = this.context.CreateNew<GameMapDefinition>();
+                    map.Name = mapName;
                     map.Number = (short)(i + skipCount);
                     map.ExpMultiplier = 1;
-                    map.TerrainData = Terrains.ResourceManager.GetObject("Terrain" + (i + 1 + skipCount).ToString()) as byte[];
+                    var terrain =
+                        Terrains.ResourceManager.GetObject("Terrain" + (i + 1 + skipCount).ToString()) as byte[]
+                        ?? Terrains.ResourceManager.GetObject("Terrain" + (mapNames.IndexOf(mapName.Substring(0, mapName.Length - 1) + "1") + 1)) as byte[];
+                    map.TerrainData = terrain;
                     return map;
                 })
                 .Where(map => map.Number > 0 && map.Name != "?")
@@ -572,11 +479,11 @@ namespace MUnique.OpenMU.Persistence.Initialization
 
         private GameServerConfiguration CreateGameServerConfiguration(ICollection<GameMapDefinition> maps)
         {
-            var gameServerConfiguration = this.repositoryManager.CreateNew<GameServerConfiguration>();
+            var gameServerConfiguration = this.context.CreateNew<GameServerConfiguration>();
             gameServerConfiguration.MaximumNPCs = 20000;
             gameServerConfiguration.MaximumPlayers = 1000;
 
-            var mainPacketHandlerConfig = this.repositoryManager.CreateNew<MainPacketHandlerConfiguration>();
+            var mainPacketHandlerConfig = this.context.CreateNew<MainPacketHandlerConfiguration>();
             mainPacketHandlerConfig.ClientVersion = new byte[] { 0x31, 0x30, 0x34, 0x30, 0x34 };
             mainPacketHandlerConfig.ClientSerial = Encoding.UTF8.GetBytes("k1Pk2jcET48mxL3b");
 
@@ -606,7 +513,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
             yield return this.CreatePacketConfig<CloseNPCHandler>(PacketType.CloseNPC);
             yield return this.CreatePacketConfig<BuyNPCItemHandler>(PacketType.BuyNPCItem);
             yield return this.CreatePacketConfig<SellItemToNPCHandler>(PacketType.SellNPCItem);
-            yield return this.CreatePacketConfig<WarpS54Handler>(PacketType.WarpCommand);
+            yield return this.CreatePacketConfig<WarpHandler>(PacketType.WarpCommand);
             yield return this.CreatePacketConfig<WarpGateHandler>(PacketType.WarpGate);
             yield return this.CreatePacketConfig<WarehouseCloseHandler>(PacketType.VaultClose);
             yield return this.CreatePacketConfig<JewelMixHandler>(PacketType.JewelMix);
@@ -647,6 +554,7 @@ namespace MUnique.OpenMU.Persistence.Initialization
             yield return this.CreatePacketConfig<AddFriendHandler>(PacketType.FriendAdd);
             yield return this.CreatePacketConfig<DeleteFriendHandler>(PacketType.FriendDelete);
             yield return this.CreatePacketConfig<ChatRequestHandler>(PacketType.ChatRoomCreate);
+            yield return this.CreatePacketConfig<ChatRoomInvitationRequest>(PacketType.ChatRoomInvitationReq);
             yield return this.CreatePacketConfig<FriendAddResponseHandler>(PacketType.FriendAddReponse);
             yield return this.CreatePacketConfig<ChangeOnlineStateHandler>(PacketType.FriendStateClient);
         }
@@ -663,7 +571,13 @@ namespace MUnique.OpenMU.Persistence.Initialization
             this.gameConfiguration.CharacterNameRegex = "^[a-zA-Z0-9]{3,10}$";
             this.gameConfiguration.MaximumPasswordLength = 20;
             this.gameConfiguration.MaximumPartySize = 5;
-            var moneyDropItemGroup = this.repositoryManager.CreateNew<DropItemGroup>();
+            this.gameConfiguration.ExperienceTable =
+                Enumerable.Range(0, this.gameConfiguration.MaximumLevel + 1)
+                    .Select(level => this.CalculateNeededExperience(level))
+                    .ToArray();
+            this.gameConfiguration.MasterExperienceTable =
+                Enumerable.Range(0, 201).Select(level => this.CalcNeededMasterExp(level)).ToArray();
+            var moneyDropItemGroup = this.context.CreateNew<DropItemGroup>();
             moneyDropItemGroup.Chance = 0.5;
             moneyDropItemGroup.ItemType = SpecialItemType.Money;
             this.gameConfiguration.BaseDropItemGroups.Add(moneyDropItemGroup);
@@ -675,19 +589,18 @@ namespace MUnique.OpenMU.Persistence.Initialization
             this.gameConfiguration.ItemOptions.Add(this.CreateOptionDefinition(Stats.DefenseBase));
             this.gameConfiguration.ItemOptions.Add(this.CreateOptionDefinition(Stats.MaximumPhysBaseDmg));
             this.gameConfiguration.ItemOptions.Add(this.CreateOptionDefinition(Stats.MaximumWizBaseDmg));
-            //// TODO: Excellent Options
 
-            new CharacterClassInitialization(this.repositoryManager, this.gameConfiguration).CreateCharacterClasses();
-            var setHelper = new SetItemHelper(this.repositoryManager, this.gameConfiguration);
+            new CharacterClassInitialization(this.context, this.gameConfiguration).CreateCharacterClasses();
+            var setHelper = new SetItemHelper(this.context, this.gameConfiguration);
             setHelper.CreateSets();
-            var weaponHelper = new WeaponItemHelper(this.repositoryManager, this.gameConfiguration);
+            var weaponHelper = new WeaponItemHelper(this.context, this.gameConfiguration);
             weaponHelper.InitializeWeapons();
-            new Potions(this.repositoryManager, this.gameConfiguration).Initialize();
-            new Jewels(this.repositoryManager, this.gameConfiguration).Initialize();
+            new Potions(this.context, this.gameConfiguration).Initialize();
+            new Jewels(this.context, this.gameConfiguration).Initialize();
             this.CreateNpcs();
             this.CreateGameMapDefinitions();
             this.AssignCharacterClassHomeMaps();
-            new Gates().Initialize(this.repositoryManager, this.gameConfiguration);
+            new Gates().Initialize(this.context, this.gameConfiguration);
             //// TODO: ItemSetGroups
             //// TODO: MagicEffects
             //// TODO: MasterSkillRoots

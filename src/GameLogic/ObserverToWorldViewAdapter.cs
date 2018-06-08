@@ -50,23 +50,28 @@ namespace MUnique.OpenMU.GameLogic
             }
 
             var item = eventArgs.Item;
-            if (item is IHasBucketInformation hasBucketInfo && this.ObservingBuckets.Contains(hasBucketInfo.CurrentBucket))
+            if (item is IHasBucketInformation hasBucketInfo && this.ObservingBuckets.Contains(hasBucketInfo.OldBucket))
             {
-                // we already observe the bucket
+                // we already observe the bucket where the object came from
                 return;
             }
 
-            if (item is Player)
+            if (!item.IsActive())
             {
-                this.adaptee.WorldView.NewPlayersInScope(((Player)item).GetAsEnumerable());
+                return;
             }
-            else if (item is NonPlayerCharacter)
+
+            if (item is Player player)
             {
-                this.adaptee.WorldView.NewNpcsInScope(((NonPlayerCharacter)item).GetAsEnumerable());
+                this.adaptee.WorldView.NewPlayersInScope(player.GetAsEnumerable());
             }
-            else if (item is DroppedItem)
+            else if (item is NonPlayerCharacter npc)
             {
-                this.adaptee.WorldView.ShowDroppedItems(((DroppedItem)item).GetAsEnumerable(), sender != this);
+                this.adaptee.WorldView.NewNpcsInScope(npc.GetAsEnumerable());
+            }
+            else if (item is DroppedItem droppedItem)
+            {
+                this.adaptee.WorldView.ShowDroppedItems(droppedItem.GetAsEnumerable(), sender != this);
             }
             else
             {
@@ -108,7 +113,7 @@ namespace MUnique.OpenMU.GameLogic
             }
 
             var hasBucketInfo = item as IHasBucketInformation;
-            if (hasBucketInfo?.CurrentBucket != null && this.ObservingBuckets.Contains(hasBucketInfo.CurrentBucket))
+            if (hasBucketInfo?.NewBucket != null && this.ObservingBuckets.Contains(hasBucketInfo.NewBucket))
             {
                 // CurrentBucket contains the new bucket if the object is moving. So in this case we still observe the new bucket and don't need to remove the object from observation.
                 return;
@@ -135,7 +140,10 @@ namespace MUnique.OpenMU.GameLogic
             }
             else
             {
-                this.adaptee.WorldView.ObjectsOutOfScope(item.GetAsEnumerable());
+                if (item.IsActive())
+                {
+                    this.adaptee.WorldView.ObjectsOutOfScope(item.GetAsEnumerable());
+                }
             }
         }
 
@@ -152,8 +160,9 @@ namespace MUnique.OpenMU.GameLogic
             try
             {
                 oldItems = oldObjects.OfType<IObservable>().Where(item =>
-                    this.observingObjects.Contains(item) &&
-                    (!(item is IHasBucketInformation) || !this.ObservingBuckets.Contains(((IHasBucketInformation)item).CurrentBucket))).ToList();
+                    this.observingObjects.Contains(item)
+                    && ((this.adaptee as IHasBucketInformation)?.NewBucket == null
+                        || (!(item is IHasBucketInformation) || !this.ObservingBuckets.Contains(((IHasBucketInformation)item).NewBucket)))).ToList();
                 oldItems.ForEach(item => this.observingObjects.Remove(item));
             }
             finally
@@ -163,16 +172,23 @@ namespace MUnique.OpenMU.GameLogic
 
             oldItems.ForEach(item => item.RemoveObserver(this.adaptee));
 
-            var nonItems = oldItems.OfType<IIdentifiable>().Where(item => !(item is DroppedItem));
-            if (nonItems.Any())
+            if (this.adaptee is IHasBucketInformation bucketInformation && bucketInformation.NewBucket == null)
             {
-                this.adaptee.WorldView.ObjectsOutOfScope(nonItems);
+                // adaptee (player) left the map or disconnected; it's not required to update the view
             }
-
-            var droppedItems = oldItems.OfType<DroppedItem>();
-            if (droppedItems.Any())
+            else
             {
-                this.adaptee.WorldView.DroppedItemsDisappeared(droppedItems.Select(item => item.Id));
+                var nonItems = oldItems.OfType<ILocateable>().Where(item => !(item is DroppedItem)).WhereActive();
+                if (nonItems.Any())
+                {
+                    this.adaptee.WorldView.ObjectsOutOfScope(nonItems);
+                }
+
+                var droppedItems = oldItems.OfType<DroppedItem>();
+                if (droppedItems.Any())
+                {
+                    this.adaptee.WorldView.DroppedItemsDisappeared(droppedItems.Select(item => item.Id));
+                }
             }
         }
 
@@ -196,13 +212,13 @@ namespace MUnique.OpenMU.GameLogic
                 this.observingLock.ExitWriteLock();
             }
 
-            var players = newItems.OfType<Player>();
+            var players = newItems.OfType<Player>().WhereActive();
             if (players.Any())
             {
                 this.adaptee.WorldView.NewPlayersInScope(players);
             }
 
-            var npcs = newItems.OfType<NonPlayerCharacter>();
+            var npcs = newItems.OfType<NonPlayerCharacter>().WhereActive();
             if (npcs.Any())
             {
                 this.adaptee.WorldView.NewNpcsInScope(npcs);

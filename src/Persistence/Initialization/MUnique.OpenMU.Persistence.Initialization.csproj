@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MUnique.OpenMU.Persistence.Initialization</RootNamespace>
     <AssemblyName>MUnique.OpenMU.Persistence.Initialization</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -54,12 +55,26 @@
     <Compile Include="CharacterClassNumber.cs" />
     <Compile Include="DataInitialization.cs" />
     <Compile Include="Gates.cs" />
+    <Compile Include="IMemoryRepository.cs" />
     <Compile Include="Items\ItemHelperBase.cs" />
     <Compile Include="Items\Jewels.cs" />
     <Compile Include="Items\Potions.cs" />
     <Compile Include="Items\SetItemHelper.cs" />
     <Compile Include="Items\WeaponItemHelper.cs" />
+    <Compile Include="Maps\Arena.cs" />
+    <Compile Include="Maps\Atlans.cs" />
+    <Compile Include="Maps\BaseMapInitializer.cs" />
+    <Compile Include="Maps\Devias.cs" />
+    <Compile Include="Maps\DevilSquare1To4.cs" />
+    <Compile Include="Maps\Dungeon.cs" />
+    <Compile Include="Maps\Exile.cs" />
+    <Compile Include="Maps\Icarus.cs" />
+    <Compile Include="Maps\IMapInitializer.cs" />
     <Compile Include="Maps\Lorencia.cs" />
+    <Compile Include="Maps\LostTower.cs" />
+    <Compile Include="Maps\Noria.cs" />
+    <Compile Include="Maps\Tarkan.cs" />
+    <Compile Include="MemoryRepository{TValue}.cs" />
     <Compile Include="NpcInitialization.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Terrains.Designer.cs">
@@ -163,24 +178,20 @@
     </AdditionalFiles>
   </ItemGroup>
   <ItemGroup>
-    <Analyzer Include="..\..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\Newtonsoft.Json.dll" />
-    <Analyzer Include="..\..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
-    <Analyzer Include="..\..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="Terrains.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Terrains.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Buffs.txt" />
-    <Content Include="JewelMixes.txt" />
     <None Include="MasterSkillTree.xml">
       <SubType>Designer</SubType>
     </None>
     <None Include="ChaosMixes.xml" />
-    <Content Include="Guardian Options.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Analyzer Include="..\..\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
+    <Analyzer Include="..\..\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

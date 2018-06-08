@@ -45,9 +45,9 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
                                 break;
                             }
                         }
-                        else if (parameters.Length == 1 && parameters[0].ParameterType == typeof(IRepositoryManager))
+                        else if (parameters.Length == 1 && parameters[0].ParameterType == typeof(IPersistenceContextProvider))
                         {
-                            if (ctor.Invoke(new object[] { gameContext.RepositoryManager }) is IItemConsumeHandler consumeHandler)
+                            if (ctor.Invoke(new object[] { gameContext.PersistenceContextProvider }) is IItemConsumeHandler consumeHandler)
                             {
                                 this.consumeHandlers.Add(item, consumeHandler);
                                 break;
@@ -86,14 +86,14 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
                 return;
             }
 
-            if (item.Durability <= 1)
+            if (item.Durability == 0)
             {
                 player.Inventory.RemoveItem(item);
                 player.PlayerView.InventoryView.ItemConsumed(inventorySlot, true);
             }
             else
             {
-                player.PlayerView.InventoryView.ItemDurabilityChanged(item);
+                player.PlayerView.InventoryView.ItemDurabilityChanged(item, true);
             }
         }
 

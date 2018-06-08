@@ -33,7 +33,8 @@ namespace MUnique.OpenMU.GameLogic
             this.Map[obj.X, obj.Y].Add(obj);
             if (obj is IHasBucketInformation bucketInfo)
             {
-                bucketInfo.CurrentBucket = this.Map[obj.X, obj.Y];
+                bucketInfo.OldBucket = null;
+                bucketInfo.NewBucket = this.Map[obj.X, obj.Y];
             }
 
             if (obj is IBucketMapObserver observingPlayer)
@@ -47,7 +48,8 @@ namespace MUnique.OpenMU.GameLogic
         {
             if (obj is IHasBucketInformation bucketInfo)
             {
-                bucketInfo.CurrentBucket = null;
+                bucketInfo.OldBucket = this.Map[obj.X, obj.Y];
+                bucketInfo.NewBucket = null;
             }
 
             if (!this.Map[obj.X, obj.Y].Remove(obj))
@@ -63,7 +65,6 @@ namespace MUnique.OpenMU.GameLogic
                     bucket.ItemRemoved -= observingPlayer.LocateableRemoved;
                 }
 
-                // TODO: Check if this is really neccessary. It may be that the client automatically removes all objects when you change a map or go back to character select
                 if (observingPlayer.ObservingBuckets.Any(b => b.Count > 0))
                 {
                     observingPlayer.LocateablesOutOfScope(observingPlayer.ObservingBuckets.SelectMany(o => o));
@@ -168,8 +169,9 @@ namespace MUnique.OpenMU.GameLogic
                 Bucket<ILocateable> newBucket = this.Map[newX, newY];
                 if (obj is IHasBucketInformation bucketInfo)
                 {
-                    oldBucket = bucketInfo.CurrentBucket;
-                    bucketInfo.CurrentBucket = newBucket;
+                    oldBucket = bucketInfo.NewBucket;
+                    bucketInfo.NewBucket = newBucket;
+                    bucketInfo.OldBucket = oldBucket;
                 }
                 else
                 {

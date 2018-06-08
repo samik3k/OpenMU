@@ -9,16 +9,15 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
     /// <summary>
     /// Repository for the <see cref="GameServerDefinition"/>.
     /// It sets the <see cref="EntityDataContext.CurrentGameConfiguration"/> before loading other dependent data which tries to load the configured maps of a server.
-    /// See also <see cref="GameMapDefinitionRepository"/> and <see cref="GameConfigurationRepository"/>.
     /// </summary>
     internal class GameServerDefinitionRepository : GenericRepository<GameServerDefinition>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GameServerDefinitionRepository"/> class.
         /// </summary>
-        /// <param name="repositoryManager">The repository manager.</param>
-        public GameServerDefinitionRepository(IRepositoryManager repositoryManager)
-            : base(repositoryManager)
+        /// <param name="contextProvider">The repository manager.</param>
+        public GameServerDefinitionRepository(PersistenceContextProvider contextProvider)
+            : base(contextProvider)
         {
         }
 
@@ -26,19 +25,26 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
         protected override void LoadDependentData(object obj, DbContext currentContext)
         {
             // TODO: TEST IF REALLY REQUIRED!
-            if (obj is GameServerDefinition definition && definition.GameConfigurationId.HasValue)
+            if (obj is GameServerDefinition definition)
             {
-                definition.RawGameConfiguration =
-                    this.RepositoryManager.GetRepository<GameConfiguration>()
-                        .GetById(definition.GameConfigurationId.Value);
-
-                if (currentContext is EntityDataContext context)
+                if (definition.GameConfigurationId.HasValue)
                 {
-                    context.CurrentGameConfiguration = definition.RawGameConfiguration;
+                    definition.RawGameConfiguration =
+                        this.ContextProvider.RepositoryManager.GetRepository<GameConfiguration>()
+                            .GetById(definition.GameConfigurationId.Value);
+
+                    if (currentContext is EntityDataContext context)
+                    {
+                        context.CurrentGameConfiguration = definition.RawGameConfiguration;
+                    }
+                }
+
+                if (definition.ServerConfigurationId.HasValue)
+                {
+                    definition.ServerConfiguration = this.ContextProvider.RepositoryManager.GetRepository<GameServerConfiguration>()
+                        .GetById(definition.ServerConfigurationId.Value);
                 }
             }
-
-            base.LoadDependentData(obj, currentContext);
         }
     }
 }

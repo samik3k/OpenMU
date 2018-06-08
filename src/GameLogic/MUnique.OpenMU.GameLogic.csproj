@@ -7,7 +7,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>MUnique.OpenMU.GameLogic</RootNamespace>
     <AssemblyName>MUnique.OpenMU.GameLogic</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
     <AppDesignerFolder>Properties</AppDesignerFolder>
@@ -71,6 +71,7 @@
     <Compile Include="..\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="ArrayExtensions.cs" />
     <Compile Include="AttackableExtensions.cs" />
     <Compile Include="Attributes\ItemAwareAttributeSystem.cs" />
     <Compile Include="Attributes\MonsterAttributeHolder.cs" />
@@ -111,6 +112,7 @@
     <Compile Include="NPC\BasicMonsterIntelligence.cs" />
     <Compile Include="NPC\Monster.cs" />
     <Compile Include="NPC\NonPlayerCharacter.cs" />
+    <Compile Include="Views\ViewExtensions.cs" />
     <Compile Include="Walker.cs" />
     <Compile Include="ObjectExtensions.cs" />
     <Compile Include="ObservableExtensions.cs" />
@@ -215,7 +217,7 @@
     <Compile Include="PlayerActions\Trade\TradeMoneyAction.cs" />
     <Compile Include="PlayerActions\Trade\TradeRequestAction.cs" />
     <Compile Include="PlayerActions\WarpGateAction.cs" />
-    <Compile Include="PlayerActions\WarpS54Action.cs" />
+    <Compile Include="PlayerActions\WarpAction.cs" />
     <Compile Include="Views\IPlayerView.cs" />
     <Compile Include="IGameContext.cs" />
     <Compile Include="IMonsterIntelligence.cs" />
@@ -241,7 +243,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="quest stuff.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AttributeSystem\MUnique.OpenMU.AttributeSystem.csproj">
@@ -266,10 +267,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\Newtonsoft.Json.dll" />
-    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
-    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.0\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
+    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.CodeFixes.dll" />
+    <Analyzer Include="..\packages\StyleCop.Analyzers.1.0.2\analyzers\dotnet\cs\StyleCop.Analyzers.dll" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

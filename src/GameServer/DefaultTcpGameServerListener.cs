@@ -14,7 +14,6 @@ namespace MUnique.OpenMU.GameServer
     using MUnique.OpenMU.GameServer.RemoteView;
     using MUnique.OpenMU.Interfaces;
     using MUnique.OpenMU.Network;
-    using MUnique.OpenMU.Network.SimpleModulus;
 
     /// <summary>
     /// A game server listener that listens on a TCP port which uses the default packet handlers (<see cref="GameServerContext.PacketHandlers"/>).
@@ -55,9 +54,6 @@ namespace MUnique.OpenMU.GameServer
 
         /// <inheritdoc/>
         public event EventHandler<PlayerConnectedEventArgs> PlayerConnected;
-
-        /// <inheritdoc/>
-        public event EventHandler<RequestPlayerIdEventArgs> PlayerIdRequested;
 
         /// <inheritdoc/>
         public void Start()
@@ -129,41 +125,21 @@ namespace MUnique.OpenMU.GameServer
 
             var remoteEndPoint = socket.RemoteEndPoint;
             this.Log(l => l.DebugFormat($"Game Client connected, Address {remoteEndPoint}"));
-            ushort newPlayerId;
-            var playerIdEventArgs = new RequestPlayerIdEventArgs();
-            if (!this.OnRequestPlayerId(playerIdEventArgs))
+            if (this.gameContext.PlayerList.Count >= this.gameContext.ServerConfiguration.MaximumPlayers)
             {
-                // No Free Id, so disconnect the client
-                this.Log(l => l.DebugFormat($"out of free id's... disconnecting the game client {remoteEndPoint}"));
+                this.Log(l => l.DebugFormat($"The server is full... disconnecting the game client {remoteEndPoint}"));
 
-                // MAYBE TODO: wait until an id is free?
+                // MAYBE TODO: wait until another player disconnects?
                 socket.Dispose();
             }
             else
             {
-                newPlayerId = playerIdEventArgs.PlayerId;
-                this.Log(l => l.DebugFormat($"new player id {newPlayerId} for game client {remoteEndPoint}"));
                 var connection = new Connection(socket, new Encryptor(), new Decryptor());
-                var remotePlayer = new RemotePlayer(newPlayerId, this.gameContext, this.mainPacketHandler, connection);
+                var remotePlayer = new RemotePlayer(this.gameContext, this.mainPacketHandler, connection);
                 this.OnPlayerConnected(remotePlayer);
                 connection.Disconnected += (sender, e) => remotePlayer.Disconnect();
                 connection.BeginReceive();
             }
-        }
-
-        private bool OnRequestPlayerId(RequestPlayerIdEventArgs playerIdEventArgs)
-        {
-            var eventHandler = this.PlayerIdRequested;
-            if (eventHandler != null)
-            {
-                eventHandler(this, playerIdEventArgs);
-            }
-            else
-            {
-                this.Log(l => l.Error($"Event {nameof(this.PlayerIdRequested)} was not handled."));
-            }
-
-            return !playerIdEventArgs.Cancel;
         }
 
         private void OnPlayerConnected(Player player)

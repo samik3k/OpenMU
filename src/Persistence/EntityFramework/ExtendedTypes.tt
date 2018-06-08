@@ -7,6 +7,7 @@
 <#@ assembly name="System.Core" #>
 <#@ assembly name="$(TargetDir)\MUnique.OpenMU.DataModel.dll" #>
 <#@ assembly name="$(TargetDir)\MUnique.OpenMU.AttributeSystem.dll" #>
+<#@ assembly name="$(TargetDir)\MUnique.OpenMU.Interfaces.dll" #>
 <#@ assembly name="$(TargetPath)" #>
 <#@ import namespace="System.Text" #>
 <#@ import namespace="System.Linq" #>
@@ -32,6 +33,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations.Schema;
+    using Newtonsoft.Json;
 
 <#
 Assembly assembly = typeof(Account).Assembly;
@@ -43,6 +45,8 @@ customTypes.Add(typeof(MUnique.OpenMU.AttributeSystem.ConstantElement));
 customTypes.Add(typeof(MUnique.OpenMU.AttributeSystem.AttributeRelationship));
 customTypes.Add(typeof(MUnique.OpenMU.AttributeSystem.SimpleElement));
 customTypes.Add(typeof(MUnique.OpenMU.AttributeSystem.AttributeRelationshipElement));
+customTypes.Add(typeof(MUnique.OpenMU.Interfaces.LetterHeader));
+customTypes.Add(typeof(MUnique.OpenMU.Interfaces.Friend));
 
 
 string customTypeSuffix = string.Empty;
@@ -115,7 +119,7 @@ foreach (Type type in customTypes)
             var elementType = propertyInfo.PropertyType.GenericTypeArguments[0];
             var joinTypeName = propertyInfo.DeclaringType.Name + elementType.Name;
 #>  
-            this.<#=propertyInfo.Name#> = new ManyToManyCollectionAdapter<<#=elementType.FullName#>, <#=joinTypeName#>>(this.Joined<#=elementType.Name#>s, joinEntity => joinEntity.<#=elementType.Name#>, entity => new <#=joinTypeName#> { <#=type.Name #> = this, <#=type.Name #>Id = this.Id, <#=elementType.Name#> = (<#=elementType.Name + customTypeSuffix#>)entity, <#=elementType.Name#>Id = ((<#=elementType.Name + customTypeSuffix#>)entity).Id});
+            this.<#=propertyInfo.Name#> = new ManyToManyCollectionAdapter<<#=elementType.FullName#>, <#=joinTypeName#>>(this.Joined<#=propertyInfo.Name#>, joinEntity => joinEntity.<#=elementType.Name#>, entity => new <#=joinTypeName#> { <#=type.Name #> = this, <#=type.Name #>Id = this.Id, <#=elementType.Name#> = (<#=elementType.Name + customTypeSuffix#>)entity, <#=elementType.Name#>Id = ((<#=elementType.Name + customTypeSuffix#>)entity).Id});
         <#
         } // end foreach standalone property
         #>}
@@ -181,10 +185,13 @@ foreach (Type type in customTypes)
 <#}#>
         }
         <#} else if (property.PropertyType.GenericTypeArguments.Length == 1 && property.PropertyType.GenericTypeArguments[0].IsPrimitive) {#>[Column("<#=property.Name#>")]
+        [JsonProperty("<#=property.Name#>")]
         public string Raw<#=property.Name#> { get; set; }
-        <#} else {#>public <#=propertyTypeName#> Raw<#=property.Name#> { get; set; } = new List<<#=genericParameterType#>>();<#}#>
+        <#} else {#>public <#=propertyTypeName#> Raw<#=property.Name#> { get; } = new List<<#=genericParameterType#>>();<#}#>
         
         /// <inheritdoc/>
+<#if (property.PropertyType.GenericTypeArguments.Length == 1 && property.PropertyType.GenericTypeArguments[0].IsPrimitive) {#>        [JsonIgnore]
+<#}#>
         [NotMapped]
         public override <#=originalPropertyTypeName#> <#=property.Name#>
         {
@@ -311,7 +318,7 @@ foreach (PropertyInfo propertyInfo in allStandaloneCollectionProperties)
     var elementType = propertyInfo.PropertyType.GenericTypeArguments[0];
     var joinTypeName = propertyInfo.DeclaringType.Name + elementType.Name;
 #>
-            modelBuilder.Entity<<#=propertyInfo.DeclaringType.Name + customTypeSuffix#>>().HasMany(entity => entity.Joined<#=elementType.Name#>s).WithOne(join => join.<#=propertyInfo.DeclaringType.Name#>);
+            modelBuilder.Entity<<#=propertyInfo.DeclaringType.Name + customTypeSuffix#>>().HasMany(entity => entity.Joined<#=propertyInfo.Name#>).WithOne(join => join.<#=propertyInfo.DeclaringType.Name#>);
             modelBuilder.Entity<<#=joinTypeName#>>().HasKey(join => new { join.<#=propertyInfo.DeclaringType.Name#>Id, join.<#=elementType.Name#>Id });
 <#
 }

@@ -78,14 +78,14 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions
                 }
                 else if (messageType == ChatMessageType.Alliance)
                 {
-                    // gameContext.GuildServer.AllianceMessage(Player.ShortGuildID, Player.SelectedCharacter.Name, message);
+                    // gameContext.GuildServer.AllianceMessage(Player.GuildStatus, Player.SelectedCharacter.Name, message);
                 }
-                else if (messageType == ChatMessageType.Guild && sender.ShortGuildID != 0)
+                else if (messageType == ChatMessageType.Guild && sender.GuildStatus != null)
                 {
                     var guildServer = (this.gameContext as IGameServerContext)?.GuildServer;
                     if (guildServer != null)
                     {
-                        var guildId = sender.SelectedCharacter?.GuildMemberInfo?.GuildId;
+                        var guildId = sender.GuildStatus?.GuildId;
                         if (guildId.HasValue)
                         {
                             guildServer.GuildMessage(guildId.Value, sender.SelectedCharacter.Name, message);
@@ -106,7 +106,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions
             string[] sa = message.Split(' ');
             switch (sa[0])
             {
-                /* after Season 5.4 it works by a separate packet. look for WarpS54Action.
+                /* after Season 5.4 it works by a separate packet. look for WarpAction.
                 case "/move":
                 case "/warp":
                     ReadWarp(sa);

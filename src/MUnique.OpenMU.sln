@@ -44,7 +44,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\.travis.yml = ..\.travis.yml
 		..\LICENSE = ..\LICENSE
 		..\QuickStart.md = ..\QuickStart.md
-		..\Readme.md = ..\Readme.md
+		..\Readme.md = ..\README.md
 		SharedAssemblyInfo.cs = SharedAssemblyInfo.cs
 		stylecop.json = stylecop.json
 	EndProjectSection
@@ -77,6 +77,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MUnique.OpenMU.SimpleModulusKeyGenerator", "SimpleModulusKeyGenerator\MUnique.OpenMU.SimpleModulusKeyGenerator.csproj", "{F4FB8089-880E-43C3-A1B3-0B1B73B24729}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MUnique.OpenMU.Network.Analyzer", "Network\Analyzer\MUnique.OpenMU.Network.Analyzer.csproj", "{2D35FBDD-5636-466D-9D6B-9FCEBD017E80}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MUnique.OpenMU.Persistence.InMemory", "Persistence\InMemory\MUnique.OpenMU.Persistence.InMemory.csproj", "{23B216A0-B407-4A76-A387-0B9E72B15363}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -199,6 +201,10 @@ Global
 		{2D35FBDD-5636-466D-9D6B-9FCEBD017E80}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D35FBDD-5636-466D-9D6B-9FCEBD017E80}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D35FBDD-5636-466D-9D6B-9FCEBD017E80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23B216A0-B407-4A76-A387-0B9E72B15363}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23B216A0-B407-4A76-A387-0B9E72B15363}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23B216A0-B407-4A76-A387-0B9E72B15363}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23B216A0-B407-4A76-A387-0B9E72B15363}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

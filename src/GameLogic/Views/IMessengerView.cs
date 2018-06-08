@@ -35,7 +35,12 @@ namespace MUnique.OpenMU.GameLogic.Views
         /// <summary>
         /// A letter can't be sent to yourself.
         /// </summary>
-        CantSendToYourself = 4
+        CantSendToYourself = 4,
+
+        /// <summary>
+        /// The sender doesn't have enough money to send a letter.
+        /// </summary>
+        NotEnoughMoney = 7,
     }
 
     /// <summary>
@@ -48,6 +53,13 @@ namespace MUnique.OpenMU.GameLogic.Views
         /// </summary>
         /// <param name="maxLetters">The maximum number of letters a player can have in its inbox.</param>
         void InitializeMessenger(int maxLetters);
+
+        /// <summary>
+        /// Shows the friend invitation result.
+        /// </summary>
+        /// <param name="result">If set to <c>true</c>, the invitation has been sent to the inviteds player.</param>
+        /// <param name="requestId">The request identifier.</param>
+        void ShowFriendInvitationResult(bool result, uint requestId);
 
         /// <summary>
         /// Adds a letter to the view.
@@ -106,6 +118,7 @@ namespace MUnique.OpenMU.GameLogic.Views
         /// Shows the letter send result, of the previously sent letter.
         /// </summary>
         /// <param name="success">The success.</param>
-        void LetterSendResult(LetterSendSuccess success);
+        /// <param name="letterId">The client side id of the letter.</param>
+        void LetterSendResult(LetterSendSuccess success, uint letterId);
     }
 }

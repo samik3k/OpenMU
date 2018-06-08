@@ -50,6 +50,23 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         }
 
         /// <inheritdoc/>
+        public void ItemMoveFailed(Item item)
+        {
+            var itemMoveFailed = new byte[0x11];
+            itemMoveFailed[0] = 0xC3;
+            itemMoveFailed[1] = 0x11;
+            itemMoveFailed[2] = 0x24;
+            itemMoveFailed[3] = 0xFF;
+            itemMoveFailed[4] = 0;
+            if (item != null)
+            {
+                this.itemSerializer.SerializeItem(itemMoveFailed, 5, item);
+            }
+
+            this.connection.Send(itemMoveFailed);
+        }
+
+        /// <inheritdoc/>
         public void UpdateMoney()
         {
             var message = new byte[] { 0xC3, 0x08, 0x22, 0xFE, 0, 0, 0, 0 };
@@ -101,13 +118,13 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         /// <inheritdoc/>
         public void ItemConsumed(byte inventorySlot, bool success)
         {
-            this.connection.Send(new byte[] { 0xC1, 0x05, 0x28, (byte)(success ? 1 : 0), inventorySlot });
+            this.connection.Send(new byte[] { 0xC1, 0x05, 0x28, inventorySlot, (byte)(success ? 1 : 0) });
         }
 
         /// <inheritdoc/>
-        public void ItemDurabilityChanged(Item item)
+        public void ItemDurabilityChanged(Item item, bool afterConsumption)
         {
-            this.connection.Send(new byte[] { 0xC1, 0x06, 0x2A, item.ItemSlot, item.Durability, 0x00 });
+            this.connection.Send(new byte[] { 0xC1, 0x06, 0x2A, item.ItemSlot, item.Durability, afterConsumption ? (byte)0x01 : (byte)0x00 });
         }
 
         /// <inheritdoc/>
@@ -168,6 +185,17 @@ namespace MUnique.OpenMU.GameServer.RemoteView
             message[3] = item.ItemSlot;
             this.itemSerializer.SerializeItem(message, 4, item);
             this.connection.Send(message);
+        }
+
+        /// <inheritdoc />
+        public void ItemPriceSetResponse(byte itemSlot, ItemPriceResult result)
+        {
+            var packet = new byte[5];
+            packet[0] = 0xC3;
+            packet[1] = (byte)packet.Length;
+            packet[2] = 0x3F;
+            packet[3] = (byte)result;
+            packet[4] = itemSlot;
         }
     }
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
+// ReSharper disable UnusedMember.Global used by T4 templates
 namespace MUnique.OpenMU.Persistence.EntityFramework
 {
     using System;
@@ -48,6 +49,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework
             yield return typeof(MUnique.OpenMU.DataModel.Configuration.Items.ItemSetGroup);
             yield return typeof(MUnique.OpenMU.DataModel.Configuration.MasterSkillDefinition);
             yield return typeof(MUnique.OpenMU.DataModel.Configuration.Skill);
+            yield return typeof(MUnique.OpenMU.DataModel.Configuration.GameMapDefinition);
         }
     }
 }

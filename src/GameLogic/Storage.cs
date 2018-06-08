@@ -206,7 +206,6 @@ namespace MUnique.OpenMU.GameLogic
             }
 
             this.itemStorage.Items.Remove(item);
-            item.Storage = null;
             var onEquippedItemsChanged = this.EquippedItemsChanged;
             if (onEquippedItemsChanged != null && this.IsWearingSlot(item.ItemSlot))
             {
@@ -218,8 +217,8 @@ namespace MUnique.OpenMU.GameLogic
         public virtual void Clear()
         {
             this.itemStorage.Items.Clear();
-            this.itemArray.Initialize();
-            this.usedSlots.Initialize();
+            this.itemArray.ClearToDefaults();
+            this.usedSlots.ClearToDefaults();
         }
 
         /// <summary>

@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading;
 
@@ -25,13 +26,13 @@ namespace MUnique.OpenMU.GameLogic
         /// Initializes a new instance of the <see cref="GameContext"/> class.
         /// </summary>
         /// <param name="configuration">The configuration.</param>
-        /// <param name="repositoryManager">The repository manager.</param>
-        public GameContext(GameConfiguration configuration, IRepositoryManager repositoryManager)
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
+        public GameContext(GameConfiguration configuration, IPersistenceContextProvider persistenceContextProvider)
         {
             try
             {
                 this.Configuration = configuration;
-                this.RepositoryManager = repositoryManager;
+                this.PersistenceContextProvider = persistenceContextProvider;
                 this.MapList = new Dictionary<ushort, GameMap>();
                 this.recoverTimer = new Timer(this.RecoverTimerElapsed, null, this.Configuration.RecoveryInterval, this.Configuration.RecoveryInterval);
             }
@@ -52,7 +53,7 @@ namespace MUnique.OpenMU.GameLogic
         public IItemPowerUpFactory ItemPowerUpFactory { get; } = new ItemPowerUpFactory();
 
         /// <inheritdoc/>
-        public IRepositoryManager RepositoryManager { get; }
+        public IPersistenceContextProvider PersistenceContextProvider { get; }
 
         /// <summary>
         /// Gets the player list.
@@ -62,13 +63,13 @@ namespace MUnique.OpenMU.GameLogic
         /// <summary>
         /// Gets the players by character name dictionary.
         /// </summary>
-        public IDictionary<string, Player> PlayersByCharacterName { get; } = new Dictionary<string, Player>();
+        public IDictionary<string, Player> PlayersByCharacterName { get; } = new ConcurrentDictionary<string, Player>();
 
         /// <summary>
         /// Adds the player to the game.
         /// </summary>
         /// <param name="player">The player.</param>
-        public void AddPlayer(Player player)
+        public virtual void AddPlayer(Player player)
         {
             player.PlayerLeftWorld += this.PlayerLeftWorld;
             player.PlayerEnteredWorld += this.PlayerEnteredWorld;
@@ -80,7 +81,7 @@ namespace MUnique.OpenMU.GameLogic
         /// Removes the player from the game.
         /// </summary>
         /// <param name="player">The player.</param>
-        public void RemovePlayer(Player player)
+        public virtual void RemovePlayer(Player player)
         {
             if (player == null)
             {
@@ -143,7 +144,7 @@ namespace MUnique.OpenMU.GameLogic
                 }
 
                 var player = this.PlayerList[i];
-                if (player.SelectedCharacter != null)
+                if (player.SelectedCharacter != null && player.PlayerState.CurrentState == PlayerState.EnteredWorld)
                 {
                     player.Regenerate();
                 }

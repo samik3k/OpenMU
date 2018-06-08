@@ -6,6 +6,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
 {
+    using System;
     using System.Linq;
     using MUnique.OpenMU.DataModel.Configuration.Items;
     using MUnique.OpenMU.DataModel.Entities;
@@ -14,19 +15,33 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
     /// <summary>
     /// Consume handler for the Jewel of Soul which increases the item level by one until the level of 9 with a chance of 50%.
     /// </summary>
+    /// <seealso cref="MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions.ItemModifyConsumeHandler" />
     public class SoulJewelConsumeHandler : ItemModifyConsumeHandler
     {
+        private readonly IRandomizer randomizer;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SoulJewelConsumeHandler"/> class.
         /// </summary>
-        /// <param name="repositoryManager">The repository manager.</param>
-        public SoulJewelConsumeHandler(IRepositoryManager repositoryManager)
-            : base(repositoryManager)
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
+        public SoulJewelConsumeHandler(IPersistenceContextProvider persistenceContextProvider)
+            : this(persistenceContextProvider, Rand.GetRandomizer())
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SoulJewelConsumeHandler"/> class.
+        /// </summary>
+        /// <param name="persistenceContextProvider">The persistence context provider.</param>
+        /// <param name="randomizer">The randomizer.</param>
+        public SoulJewelConsumeHandler(IPersistenceContextProvider persistenceContextProvider, IRandomizer randomizer)
+            : base(persistenceContextProvider)
+        {
+            this.randomizer = randomizer;
+        }
+
         /// <inheritdoc/>
-        protected override bool ModifyItem(Item item)
+        protected override bool ModifyItem(Item item, IContext persistenceContext)
         {
             if (item.Level > 8)
             {
@@ -39,7 +54,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
                 percent += 25;
             }
 
-            if (Rand.NextRandomBool(percent))
+            if (this.randomizer.NextRandomBool(percent))
             {
                 item.Level++;
                 return true; // true doesnt mean that it was successful, just that the consumption happend.
@@ -51,7 +66,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions
             }
             else
             {
-                item.Level--;
+                item.Level = (byte)Math.Max(item.Level - 1, 0);
             }
 
             return true;

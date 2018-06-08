@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic
 {
     using MUnique.OpenMU.GameLogic.Views;
+    using MUnique.OpenMU.Interfaces;
     using MUnique.OpenMU.Persistence;
 
     /// <summary>
@@ -35,7 +36,7 @@ namespace MUnique.OpenMU.GameLogic
         /// <summary>
         /// Gets or sets the short guild identifier.
         /// </summary>
-        ushort ShortGuildID { get; set; }
+        GuildMemberStatus GuildStatus { get; set; }
 
         /// <summary>
         /// Gets the inventory.
@@ -65,7 +66,7 @@ namespace MUnique.OpenMU.GameLogic
         /// <summary>
         /// Gets the persistence context of the trader. It needs to be updated when a trade finishes.
         /// </summary>
-        IContext PersistenceContext { get; }
+        IPlayerContext PersistenceContext { get; }
 
         /// <summary>
         /// Gets the trade view.

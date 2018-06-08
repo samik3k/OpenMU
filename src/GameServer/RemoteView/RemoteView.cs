@@ -61,7 +61,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         /// Initializes a new instance of the <see cref="RemoteView"/> class.
         /// </summary>
         /// <param name="connection">The connection.</param>
-        /// <param name="player">The playerWithClosedShop.</param>
+        /// <param name="player">The player.</param>
         /// <param name="context">The context.</param>
         /// <param name="appearanceSerializer">The appearance serializer.</param>
         public RemoteView(IConnection connection, Player player, IGameServerContext context, IAppearanceSerializer appearanceSerializer)
@@ -74,7 +74,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView
             this.PartyView = new PartyView(connection, player);
             this.MessengerView = new MessengerView(connection, player, context.FriendServer, appearanceSerializer);
             this.TradeView = new TradeView(connection, player, this.itemSerializer);
-            this.GuildView = new GuildView(connection);
+            this.GuildView = new GuildView(connection, player);
             this.WorldView = new WorldView(connection, player, this.itemSerializer, appearanceSerializer);
             this.InventoryView = new InventoryView(connection, player, this.itemSerializer);
             this.appearanceSerializer = appearanceSerializer;
@@ -190,10 +190,9 @@ namespace MUnique.OpenMU.GameServer.RemoteView
 
                 var preview = this.appearanceSerializer.GetAppearanceData(new CharacterAppearanceDataAdapter(character));
                 Buffer.BlockCopy(preview, 0, packet, offset + 15, preview.Length);
-                if (character.GuildMemberInfo != null)
-                {
-                    packet[offset + 15 + 18] = this.GetGuildMemberStatusCode(character.GuildMemberInfo.Status); ////not sure about the index yet...
-                }
+
+                //// var guildStatusIndex = offset + 15 + 18;
+                //// TODO: packet[guildStatusIndex] = this.GetGuildMemberStatusCode(character.GuildMemberInfo?.Status);
 
                 i++;
             }
@@ -370,7 +369,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         /// <inheritdoc/>
         public void AddExperience(int exp, IIdentifiable obj)
         {
-            ushort id = obj?.Id ?? 0;
+            ushort id = obj.GetId(this.player);
             while (exp > 0)
             {
                 // We send multiple exp packets if the value is bigger than ushort.MaxValue, because that's all what the packet can carry.
@@ -395,7 +394,8 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         /// <inheritdoc/>
         public void PlayerShopClosed(Player playerWithClosedShop)
         {
-            this.connection.Send(new byte[] { 0xC1, 7, 0x3F, 3, 1, playerWithClosedShop.Id.GetHighByte(), playerWithClosedShop.Id.GetLowByte() });
+            var playerId = playerWithClosedShop.GetId(this.player);
+            this.connection.Send(new byte[] { 0xC1, 7, 0x3F, 3, 1, playerId.GetHighByte(), playerId.GetLowByte() });
         }
 
         /// <inheritdoc/>
@@ -450,8 +450,8 @@ namespace MUnique.OpenMU.GameServer.RemoteView
             packet[i++] = this.player.X;
             packet[i++] = this.player.Y;
             var unsignedMapNumber = ShortExtensions.ToUnsigned(this.player.SelectedCharacter.CurrentMap.Number);
-            packet[i++] = unsignedMapNumber.GetHighByte();
             packet[i++] = unsignedMapNumber.GetLowByte();
+            packet[i++] = unsignedMapNumber.GetHighByte();
             packet.SetLongSmallEndian(this.player.SelectedCharacter.Experience, i++);
             i += 7;
             packet.SetLongSmallEndian(this.context.Configuration.ExperienceTable[(int)this.player.Attributes[Stats.Level] + 1], i++);
@@ -515,9 +515,10 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         {
             var healthDamage = (ushort)(hitInfo.DamageHP & 0xFFFF);
             var shieldDamage = (ushort)(hitInfo.DamageSD & 0xFFFF);
+            var targetId = target.GetId(this.player);
             this.connection.Send(new byte[]
             {
-                0xC1, 0x0A, (byte)PacketType.Hit, target.Id.GetHighByte(), target.Id.GetLowByte(),
+                0xC1, 0x0A, (byte)PacketType.Hit, targetId.GetHighByte(), targetId.GetLowByte(),
                                     healthDamage.GetHighByte(), healthDamage.GetLowByte(),
                                     this.GetDamageColor(hitInfo.Attributes),
                                     shieldDamage.GetLowByte(), shieldDamage.GetHighByte()
@@ -582,13 +583,14 @@ namespace MUnique.OpenMU.GameServer.RemoteView
             const int maxStoreNameLength = 36;
 
             // TODO:  Maybe cache the result, because a lot of players could request the same list.
+            var playerId = requestedPlayer.GetId(this.player);
             var itemlist = requestedPlayer.ShopStorage.Items.ToList();
             var itemcount = itemlist.Count;
             var packet = new byte[6 + maxCharacterNameLength + maxStoreNameLength + (itemcount * (8 + this.itemSerializer.NeededSpace))];
             packet[0] = 0xC2;
             packet[3] = 1;
-            packet[4] = requestedPlayer.Id.GetLowByte();
-            packet[5] = requestedPlayer.Id.GetHighByte();
+            packet[4] = playerId.GetLowByte();
+            packet[5] = playerId.GetHighByte();
 
             Encoding.UTF8.GetBytes(this.player.SelectedCharacter.Name, 0, Math.Min(maxCharacterNameLength, this.player.SelectedCharacter.Name.Length), packet, 6);
             var storeName = requestedPlayer.ShopStorage.StoreName;
@@ -601,7 +603,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView
                 var slot = item.ItemSlot - InventoryConstants.FirstStoreItemSlotIndex;
                 packet[offset + 0] = (byte)slot;
                 this.itemSerializer.SerializeItem(packet, offset + 1, item);
-                packet.SetIntegerSmallEndian(requestedPlayer.ShopStorage.StorePrices[slot], offset + 4 + this.itemSerializer.NeededSpace);
+                packet.SetIntegerSmallEndian((uint)(item.StorePrice ?? 0), offset + 4 + this.itemSerializer.NeededSpace);
             }
 
             this.connection.Send(packet);
@@ -611,7 +613,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView
         public void PlayerShopOpened(Player playerWithShop)
         {
             this.ShowShopsOfPlayers(new List<Player>(1) { playerWithShop });
-            if (this.player.Id == playerWithShop.Id)
+            if (this.player == playerWithShop)
             {
                 this.connection.Send(new byte[] { 0xC1, 0x05, 0x3F, 0x02, 0x01 }); // Success of opening the own shop
             }
@@ -630,8 +632,9 @@ namespace MUnique.OpenMU.GameServer.RemoteView
             int offset = 5;
             foreach (var shopPlayer in playersWithShop)
             {
-                packet[offset] = shopPlayer.Id.GetHighByte();
-                packet[offset + 1] = shopPlayer.Id.GetLowByte();
+                var shopPlayerId = shopPlayer.GetId(this.player);
+                packet[offset] = shopPlayerId.GetHighByte();
+                packet[offset + 1] = shopPlayerId.GetLowByte();
                 System.Text.Encoding.UTF8.GetBytes(shopPlayer.ShopStorage.StoreName, 0, shopPlayer.ShopStorage.StoreName.Length, packet, offset + 2);
                 offset += 38;
             }
@@ -722,8 +725,8 @@ namespace MUnique.OpenMU.GameServer.RemoteView
             message[2] = 0xF1;
             message[3] = 0x00;
             message[4] = 0x01; // Success
-            message[5] = this.player.Id.GetHighByte();
-            message[6] = this.player.Id.GetLowByte();
+            message[5] = ViewExtensions.ConstantPlayerId.GetHighByte();
+            message[6] = ViewExtensions.ConstantPlayerId.GetLowByte();
             Buffer.BlockCopy(this.lowestClientVersion, 0, message, 7, 5);
             this.connection.Send(message);
         }
@@ -760,15 +763,18 @@ namespace MUnique.OpenMU.GameServer.RemoteView
 
         private void SendMagicEffectStatus(MagicEffect effect, Player affectedPlayer, bool isActive, uint duration)
         {
-            this.connection.Send(new byte[] { 0xC1, 7, 7, isActive ? (byte)1 : (byte)0, affectedPlayer.Id.GetHighByte(), affectedPlayer.Id.GetLowByte(), effect.Id });
+            var playerId = affectedPlayer.GetId(this.player);
+            this.connection.Send(new byte[] { 0xC1, 7, 7, isActive ? (byte)1 : (byte)0, playerId.GetHighByte(), playerId.GetLowByte(), effect.Id });
 
             // TODO: Duration
         }
 
-        private byte GetGuildMemberStatusCode(GuildPosition position)
+        private byte GetGuildMemberStatusCode(GuildPosition? position)
         {
             switch (position)
             {
+                case null:
+                    return 0xFF;
                 case GuildPosition.NormalMember:
                     return 0;
                 case GuildPosition.GuildMaster:
@@ -844,17 +850,7 @@ namespace MUnique.OpenMU.GameServer.RemoteView
                     {
                         return this.character.Inventory.Items
                             .Where(item => item.ItemSlot <= InventoryConstants.LastEquippableItemSlotIndex)
-                            .Select(item =>
-                            {
-                                return new ItemAppearance
-                                {
-                                    Index = item.Definition.Number,
-                                    Group = item.Definition.Group,
-                                    ItemSlot = item.ItemSlot,
-                                    Level = item.Level,
-                                    VisibleOptions = item.ItemOptions.Select(option => option.ItemOption.OptionType).ToArray()
-                                };
-                            });
+                            .Select(item => item.GetAppearance());
                     }
 
                     return Enumerable.Empty<ItemAppearance>();

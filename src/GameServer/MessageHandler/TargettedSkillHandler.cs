@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameServer.MessageHandler
 {
     using MUnique.OpenMU.GameLogic;
     using MUnique.OpenMU.GameLogic.PlayerActions;
+    using MUnique.OpenMU.GameLogic.Views;
     using MUnique.OpenMU.Network;
 
     /// <summary>
@@ -37,8 +38,9 @@ namespace MUnique.OpenMU.GameServer.MessageHandler
                 return;
             }
 
+            // The target can be the own player too, for example when using buff skills.
             ushort targetId = NumberConversionExtensions.MakeWord(packet[6], packet[5]);
-            if (player.CurrentMap.GetObject(targetId) is IAttackable target)
+            if (player.GetObject(targetId) is IAttackable target)
             {
                 this.attackAction.PerformSkill(player, target, skillId);
             }

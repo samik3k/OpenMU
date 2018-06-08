@@ -47,26 +47,16 @@ namespace MUnique.OpenMU.GameLogic
             Item convertedItem = null;
             if (item is TemporaryItem temporaryItem)
             {
-                using (this.player.GameContext.RepositoryManager.UseContext(this.player.PersistenceContext))
-                {
-                    convertedItem = temporaryItem.MakePersistent(this.player.GameContext.RepositoryManager);
-                }
+                convertedItem = temporaryItem.MakePersistent(this.player.PersistenceContext);
             }
 
             var success = base.AddItem(slot, item);
             if (!success && convertedItem != null)
             {
-                this.player.GameContext.RepositoryManager.GetRepository<Item>().Delete(convertedItem);
+                this.player.PersistenceContext.Delete(convertedItem);
             }
 
             return success;
-        }
-
-        /// <inheritdoc/>
-        protected override void SetItemSlot(Item item, byte slot)
-        {
-            base.SetItemSlot(item, slot);
-            item.Storage = this.player.SelectedCharacter.Inventory;
         }
 
         private void UpdateItemsOnChange(Item item)
@@ -87,7 +77,7 @@ namespace MUnique.OpenMU.GameLogic
                 this.UpdateSetPowerUps();
             }
 
-            var itemAdded = Equals(item.Storage, this.player.SelectedCharacter.Inventory);
+            var itemAdded = this.EquippedItems.Contains(item);
             if (itemAdded)
             {
                 var factory = this.gameContext.ItemPowerUpFactory;
